@@ -1,0 +1,49 @@
+ibm:
+  mq:
+    queueManager: override
+    channel: override
+    connName: override
+    sslCipherSpec: override
+    useSSL: true
+    user:
+    password:
+    objects:
+      queues:
+        include: "*"
+        exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
+      channels:
+        include: "*"
+        exclude: SYSTEM.
+      listeners:
+        include: "*"
+        exclude: SYSTEM.
+        types:
+          include: TCP
+          exclude: "*"
+    event:
+      delayInMilliSeconds: 10000
+    security:
+      truststore: override
+      truststore-password: override
+      keystore: override
+      keystore-password: override
+management:
+  endpoints:
+    web:
+      exposure:
+        include: info, health, prometheus
+  endpoint:
+    health:
+      show-details: always        
+  security:
+    enabled: false
+info:
+  app:
+    name: MQ-Metrics
+    description: IBM MQ Metrics
+    version: 1.0.0
+    java:
+      version: 1.8.0   
+server:
+  port:
+    8082

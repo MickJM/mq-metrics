@@ -1,0 +1,45 @@
+
+# create key database ...
+# self signed
+
+1) create empty keystore
+runmqakm -keydb -create -db key.kdb -pw Passw0rd -stash 
+
+2) list certs
+runmqakm -cert -list -db key.kdb -stashed
+
+3) create cert
+runmqakm -cert -create -label ibmwebspheremq{queue manager name} -stashed -expire 730 -size 2048 -dn "CN={Queue manager name},OU={environment},OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email={support email@maersk.com}" -db key.kdb -ca false
+
+4) show cert details  
+runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremq{queue manager name}
+
+5) extract cert
+runmqakm -cert -extract -db key.kdb -stashed -label ibmwebspheremq{queue manager name} -target {queue manager name}.arm -format ascii
+
+6) create cert for application
+keytool -genkey -alias ibmwebspheremq{user} -keyalg RSA -sigalg SHA256withRSA -dname "CN={Application},OU={environment},OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB" -keystore {queue manager name}jks.jks -storetype jks -storepass Passw0rd -keypass Passw0rd -validity 365 -keysize 2048
+
+7) list certs
+keytool -keystore {queue manager name}jks.jks -storepass Passw0rd -list 
+
+8) export the public key
+keytool -export -keystore {queue manager name}jks.jks -storepass Passw0rd -alias ibmwebspheremq{user} -file {queue manager name}jks.arm -rfc
+
+
+9) Import certs ... into the jks keystore
+keytool -import -alias ibmwebspheremq{queue manager} -file {queue manager}.arm -storepass Passw0rd -keystore {queue manager}jks.jks -trustcacert
+
+10) list contents of queue managers keystore
+runmqakm -cert -list -db key.kdb -stashed
+
+11) add the extracted cert to the queue managers keystore ... only required for mutual authentication 
+runmqakm -cert -add -db key.kdb -stashed -file qmap01jks.arm -trust enable -label ibmwebspheremq{user}
+
+12) create TLS channel
+define channel(MQ.TLS.SVRCONN) chltype(SVRCONN) trptype(TCP) mcauser('MQMon01') sslcauth(REQUIRED) sslciph(TLS_RSA_WITH_AES_256_CBC_SHA256) sslpeer('CN={application}, OU={environment}') 
+
+13) set channel auths
+set chlauth(MQ.TLS.SVRCONN) type(BLOCKUSER) userlist('nobody') 
+set chlauth(MQ.TLS.SVRCONN) type(SSLPEERMAP) sslpeer('CN="{Queue manager}", OU="{environment}", OU="QMGR", OU="ADMIN"') mcauser('MQMon01') usersrc(MAP) 
+
