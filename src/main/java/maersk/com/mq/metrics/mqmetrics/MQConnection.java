@@ -148,6 +148,11 @@ public class MQConnection {
     //Queue Manager / IIB maps
     private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
 
+    //MQ reset
+    private Map<String,AtomicLong>mqReset = new HashMap<String, AtomicLong>();
+    @Value("${ibm.mq.event.delayInMilliSeconds}")
+    private long resetIterations;
+    
     //Command Server maps
     private Map<String,AtomicInteger>cmdStatusMap = new HashMap<String, AtomicInteger>();
 
@@ -199,6 +204,7 @@ public class MQConnection {
 	
 		try {
 			if (this.messageAgent != null) {
+				ResetIterations();
 				CheckQueueManagerCluster();
 				UpdateQMMetrics();
 				UpdateListenerMetrics();
@@ -359,7 +365,7 @@ public class MQConnection {
 	/**
 	 * When the queue manager isn't running, send back a status of inactive 
 	 */
-	public void QueueManagerIsNotRunning() {
+	private void QueueManagerIsNotRunning() {
 
 		// Set the queue manager status to indicate that its not running
 		AtomicInteger q = qmStatusMap.get(this.queueManager);
@@ -435,7 +441,26 @@ public class MQConnection {
 		*/
 		
 	}
-	
+
+	/***
+	 * Reset iterations value between capturing performance metrics
+	 */
+	private void ResetIterations() {
+		
+		Long l = resetIterations;		
+        AtomicLong q = mqReset.get(this.queueManager);
+		if (q == null) {
+			mqReset.put(this.queueManager, 
+					Metrics.gauge(new StringBuilder()
+							.append(MQPREFIX)
+							.append("ResetIterations").toString(),  
+					Tags.of("queueManagerName", this.queueManager),
+					new AtomicLong(l)));
+		} else {
+			q.set(0);
+		}        
+
+	}
 	/***
 	 * 
 	 * Check if the queue manager belongs to a cluster ...
@@ -445,7 +470,7 @@ public class MQConnection {
 	 * @throws IOException
 	 * @throws MQDataException
 	 */
-	public void CheckQueueManagerCluster() {
+	private void CheckQueueManagerCluster() {
 
         //int[] pcfParmAttrs = { MQConstants.MQIACF_Q_MGR_CLUSTER };
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
@@ -479,9 +504,10 @@ public class MQConnection {
 	 * @throws PCFException 
 	 * @throws MQDataException 
 	 */
-	public void UpdateQMMetrics() throws 	PCFException, 
-										MQException, 
-										IOException, MQDataException {
+	private void UpdateQMMetrics() throws PCFException, 
+											MQException, 
+											IOException, 
+											MQDataException {
 
 		
 		// Enquire on the queue manager ...
@@ -504,7 +530,7 @@ public class MQConnection {
     	
 		// queue manager status
         int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
-        		
+        
         AtomicInteger q = qmStatusMap.get(this.queueManager);
 		if (q == null) {
 			qmStatusMap.put(this.queueManager, 
@@ -520,7 +546,7 @@ public class MQConnection {
 		}        
 		
 		// command server
-        int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
+		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		AtomicInteger cmd = cmdStatusMap.get(this.queueManager);
 		if (cmd == null) {
 			cmdStatusMap.put(this.queueManager, 
@@ -652,7 +678,7 @@ public class MQConnection {
 	 * @throws MQDataException 
 	 * @throws PCFException 
 	 */
-	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
+	private void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
 		
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
@@ -732,9 +758,9 @@ public class MQConnection {
 										"channelName", channelName,
 										"cluster",channelCluster
 										)
-								, new AtomicInteger(0)));
+								, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 					} else {
-						c.set(0);
+						c.set(MQConstants.MQCHS_INACTIVE);
 					}
 				}
 
@@ -875,7 +901,7 @@ public class MQConnection {
 	 * @throws IOException
 	 * @throws MQDataException 
 	 */
-	public void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
+	private void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
 
 		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q);

@@ -23,9 +23,9 @@ ibm:
     event:
       delayInMilliSeconds: 10000      
     security:
-      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks01.jks
       truststore-password: Passw0rd
-      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks01.jks
       keystore-password: Passw0rd
 management:
   endpoints:
@@ -41,9 +41,9 @@ info:
   app:
     name: MQ-Metrics
     description: IBM MQ Metrics
-    version: 1.0.0
+    version: 1.0.0.0
     java:
-      version: 1.8.0
+      version: 1.8.0.0
 server:
   port:
     8082
