@@ -22,10 +22,9 @@ public class pcfQueueManager {
 
 	private static final String MQPREFIX = "mq:";
 
-	@Value("${ibm.mq.queuemanager}")
 	private String queueManager;
-    @Value("${ibm.mq.event.delayInMilliSeconds}")
-    private long resetIterations;
+
+	private long resetIterations;
 
 	@Value("${application.debug:false}")
     private boolean _debug;
