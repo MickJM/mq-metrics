@@ -42,6 +42,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import io.prometheus.client.CollectorRegistry;
+import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 
 /***
  * 
@@ -163,6 +164,10 @@ public class MQConnection {
     static Logger log = Logger.getLogger(MQConnection.class);
 
     //
+    //@Autowired
+    private pcfQueueManager pcfmessageAgent;
+    
+    //
     private int queueMonitoringFromQmgr;
     public int getQueueMonitoringFromQmgr() {
 		return queueMonitoringFromQmgr;
@@ -214,7 +219,8 @@ public class MQConnection {
 			} else {
 				log.info("No MQ queue manager object");
 				CreateQueueManagerConnection();
-
+				this.pcfmessageAgent = new pcfQueueManager(messageAgent);
+				
 			}
 		} catch (PCFException p) {
 			log.info("PCFException " + p.getMessage());
@@ -447,6 +453,8 @@ public class MQConnection {
 	 */
 	private void ResetIterations() {
 		
+		this.pcfmessageAgent.ResetIteration();
+		/*
 		Long l = resetIterations;		
         AtomicLong q = mqReset.get(this.queueManager);
 		if (q == null) {
@@ -459,7 +467,8 @@ public class MQConnection {
 		} else {
 			q.set(0);
 		}        
-
+		*/
+		
 	}
 	/***
 	 * 
@@ -472,6 +481,9 @@ public class MQConnection {
 	 */
 	private void CheckQueueManagerCluster() {
 
+		this.pcfmessageAgent.CheckQueueManagerCluster();
+		
+		/*
         //int[] pcfParmAttrs = { MQConstants.MQIACF_Q_MGR_CLUSTER };
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
         
@@ -492,7 +504,8 @@ public class MQConnection {
         	setQueueManagerClusterName("");
         	
         }
-    	
+    	*/
+		
 	}
 	
 	/**
