@@ -178,7 +178,8 @@ public class MQConnection {
 		
 	private String queueManagerClusterName;
 	public String getQueueManagerClusterName() {
-		return this.queueManagerClusterName;
+		//return this.queueManagerClusterName;
+		return this.pcfmessageAgent.getQueueManagerClusterName();
 	}
 	public void setQueueManagerClusterName(String value) {
 		this.queueManagerClusterName = value;
@@ -219,7 +220,8 @@ public class MQConnection {
 			} else {
 				log.info("No MQ queue manager object");
 				CreateQueueManagerConnection();
-				this.pcfmessageAgent = new pcfQueueManager(messageAgent);
+				this.pcfmessageAgent = new pcfQueueManager(this.messageAgent);
+				this.pcfmessageAgent.setResetIterations(resetIterations);
 				
 			}
 		} catch (PCFException p) {
@@ -318,7 +320,9 @@ public class MQConnection {
 		
 		log.info("Connection to queue manager established ");
 		log.info("Creating PCFAgent ");
-		this.messageAgent = new PCFMessageAgent(queManager);		
+		this.messageAgent = new PCFMessageAgent(queManager);
+		
+		
 		log.info("PCF agent to  " + this.queueManager + " established.");
 
 	}
@@ -722,23 +726,32 @@ public class MQConnection {
 				pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_TYPE, MQConstants.MQOT_CURRENT_CHANNEL);				
 				pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_ATTRS, pcfStatAttrs);
 
+				//***** multiple connections ... add loop
+				//MQCACH_CONNECTION_NAME, MQCACH_LOCAL_ADDRESS
 		        PCFMessage[] pcfResp = null;
 				try {
 					pcfResp = this.messageAgent.send(pcfReq);
-					int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);	
-					AtomicInteger c = channelStatusMap.get(channelName);
-					if (c == null) {
-						channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("channelStatus").toString(), 
-								Tags.of("queueManagerName", this.queueManager,
-										"channelType", channelType,
-										"channelName", channelName,
-										"cluster",channelCluster
-										)
-								, new AtomicInteger(channelStatus)));
-					} else {
-						c.set(channelStatus);
+					
+					for (PCFMessage pcfMessage : pcfResp) {
+
+						int channelStatus = pcfMessage.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
+						String conn = pcfMessage.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
+
+						AtomicInteger c = channelStatusMap.get(channelName);
+						if (c == null) {
+							channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
+									.append(MQPREFIX)
+									.append("channelStatus").toString(), 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster",channelCluster,
+											"connection", conn
+											)
+									, new AtomicInteger(channelStatus)));
+						} else {
+							c.set(channelStatus);
+						}
 					}
 
 				} catch (PCFException pcfe) {
@@ -752,7 +765,8 @@ public class MQConnection {
 									Tags.of("queueManagerName", this.queueManager,
 											"channelName", channelName,
 											"channelType", channelType,				
-											"cluster",channelCluster
+											"cluster",channelCluster,
+											"connection", ""
 											)
 									, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 						} else {
@@ -769,7 +783,8 @@ public class MQConnection {
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
 										"channelName", channelName,
-										"cluster",channelCluster
+										"cluster",channelCluster,
+										"connection", ""
 										)
 								, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 					} else {
