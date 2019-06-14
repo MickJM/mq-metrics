@@ -29,10 +29,11 @@ public class pcfQueueManager {
 
 	private String queueManager;
 
+    @Value("${ibm.mq.event.delayInMilliSeconds}")
 	private long resetIterations;
-	public void setResetIterations(long value) {
-		this.resetIterations = value;
-	}
+	//public void setResetIterations(long value) {
+	//	this.resetIterations = value;
+	//}
 	
 	@Value("${application.debug:false}")
     private boolean _debug;
@@ -66,17 +67,21 @@ public class pcfQueueManager {
 		this.queueMonitoringFromQmgr = value;
 	}
 
-	
-    public pcfQueueManager(PCFMessageAgent agent) {
+	// Constructor
+    public pcfQueueManager() {
+    }
+    
+    public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
-    	this.queueManager = this.messageAgent.getQManagerName().trim();
+    	this.queueManager = this.messageAgent.getQManagerName().trim();    	
     	
     }
 	
-    // Reset iterations
+    /*
+     * Set the number of iterations that the metrics are collected
+     */
 	public void ResetIteration() {
 		
-		Long l = resetIterations;		
         AtomicLong q = mqReset.get(this.queueManager);
 		if (q == null) {
 			mqReset.put(this.queueManager, 
@@ -84,14 +89,16 @@ public class pcfQueueManager {
 							.append(MQPREFIX)
 							.append("ResetIterations").toString(),  
 					Tags.of("queueManagerName", this.queueManager),
-					new AtomicLong(l)));
+					new AtomicLong(resetIterations)));
 		} else {
 			q.set(0);
 		}        
 		
 	}
 	
-	// Get Cluster details
+	/*
+	 * Get the cluster name of the queue manager
+	 */
 	public void CheckQueueManagerCluster() {
 		
         //int[] pcfParmAttrs = { MQConstants.MQIACF_Q_MGR_CLUSTER };
@@ -116,11 +123,12 @@ public class pcfQueueManager {
         }	
 	}
 	
-	private void UpdateQMMetrics() throws PCFException, 
-											MQException, 
-											IOException, 
-											MQDataException {
-
+	/*
+	 * Get the current status of the queue manager and CommandServer 
+	 * ... if we are not connected, then we will not set the status here
+	 * ... it will be set in the NotRunning method
+	 */
+	public void UpdateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
 
 		// Enquire on the queue manager ...
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
@@ -142,7 +150,6 @@ public class pcfQueueManager {
 		
 		// queue manager status
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
-	
 		AtomicInteger q = qmStatusMap.get(this.queueManager);
 		if (q == null) {
 			qmStatusMap.put(this.queueManager, 
@@ -157,7 +164,7 @@ public class pcfQueueManager {
 			q.set(qmStatus);
 		}        
 	
-	// command server
+		// command server status
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		AtomicInteger cmd = cmdStatusMap.get(this.queueManager);
 		if (cmd == null) {
@@ -171,6 +178,25 @@ public class pcfQueueManager {
 		} else {
 			cmd.set(cmdStatus);
 		}        	
+	}
+	
+	/*
+	 * Called from the main class, if we are not running, set the status
+	 */
+	public void NotRunning() {
+
+		// Set the queue manager status to indicate that its not running
+		AtomicInteger q = qmStatusMap.get(this.queueManager);
+		if (q == null) {
+			qmStatusMap.put(this.queueManager, 
+					Metrics.gauge("mq:queueManagerStatus", 
+					Tags.of("queueManagerName", this.queueManager,
+							"cluster","unknown"), 
+					new AtomicInteger(0)));
+		} else {
+			q.set(0);
+		}        
+		
 	}
 	
 }
