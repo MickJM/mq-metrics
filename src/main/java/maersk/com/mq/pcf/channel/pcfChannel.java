@@ -9,7 +9,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.integration.support.management.MetricsCaptor.GaugeBuilder;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
@@ -19,8 +21,14 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.prometheus.client.Collector;
+import io.prometheus.client.CollectorRegistry;
+import io.prometheus.client.Gauge;
+import io.prometheus.client.Gauge.Builder;
 
 @Component
 public class pcfChannel {
@@ -41,6 +49,8 @@ public class pcfChannel {
     
     }
 
+    private String UniqueChannelName = null;
+    
 	@Value("${ibm.mq.objects.channels.exclude}")
     private String[] excludeChannels;
 	@Value("${ibm.mq.objects.channels.include}")
@@ -52,6 +62,15 @@ public class pcfChannel {
     private Map<String,AtomicInteger>bytesReceived = new HashMap<String, AtomicInteger>();
     private Map<String,AtomicInteger>bytesSent = new HashMap<String, AtomicInteger>();
     
+    //
+    @Autowired
+    private CollectorRegistry registry;
+    
+    //public void setCollectorRegistry(CollectorRegistry registry) {
+    //	this.registry = registry;
+    //}
+    
+    //
     public pcfChannel() {
     }
     
@@ -59,6 +78,7 @@ public class pcfChannel {
      * Get the channel metrics
      */
 	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
+
 		
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
@@ -68,10 +88,14 @@ public class pcfChannel {
         PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);
 
 		int[] pcfStatAttrs = { MQConstants.MQIACF_ALL };
+
+		int iChannelCounter = 0;
+		int iChannelSeq = 0;
 		
 		// for each return response, loop
 		for (PCFMessage pcfMsg : pcfResponse) {	
 			String channelName = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CHANNEL_NAME).trim(); 
+			
 			int chlType = pcfMsg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_TYPE);	
 			String channelType = GetChannelType(chlType);
 			
@@ -89,15 +113,18 @@ public class pcfChannel {
 				pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_TYPE, MQConstants.MQOT_CURRENT_CHANNEL);				
 				pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_ATTRS, pcfStatAttrs);
 
+				
 				// loop through each response
+				// ... for now, only show that the channel is running and not ALL instances that is using the channel
+				// ... this is becuase of the way the prometheus metrics are registered
 		        PCFMessage[] pcfResp = null;
 				try {
 					pcfResp = this.messageAgent.send(pcfReq);
-					
-					for (PCFMessage pcfMessage : pcfResp) {
-
-						int channelStatus = pcfMessage.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
-						String conn = pcfMessage.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
+					PCFMessage pcfStatus = pcfResp[0];
+					//for (PCFMessage pcfMessage : pcfResp) {
+						
+						int channelStatus = pcfStatus.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
+						String conn = pcfStatus.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
 
 						AtomicInteger c = channelStatusMap.get(channelName);
 						if (c == null) {
@@ -107,19 +134,19 @@ public class pcfChannel {
 									Tags.of("queueManagerName", this.queueManager,
 											"channelType", channelType,
 											"channelName", channelName,
-											"cluster",channelCluster,
-											"connection", conn
+											"cluster",channelCluster
 											)
 									, new AtomicInteger(channelStatus)));
 						} else {
 							c.set(channelStatus);
 						}
-					}
+						
+					//}
 
 				} catch (PCFException pcfe) {
 					if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
 						
-						AtomicInteger c = channelStatusMap.get(channelName);
+						AtomicInteger c = channelStatusMap.get(this.UniqueChannelName);
 						if (c == null) {
 							channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
 									.append(MQPREFIX)
@@ -127,9 +154,7 @@ public class pcfChannel {
 									Tags.of("queueManagerName", this.queueManager,
 											"channelName", channelName,
 											"channelType", channelType,				
-											"cluster",channelCluster,
-											"connection", ""
-											)
+											"cluster",channelCluster											)
 									, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 						} else {
 							c.set(MQConstants.MQCHS_INACTIVE);
@@ -137,7 +162,7 @@ public class pcfChannel {
 					}
 					
 				} catch (Exception e) {
-					AtomicInteger c = channelStatusMap.get(channelName);
+					AtomicInteger c = channelStatusMap.get(this.UniqueChannelName);
 					if (c == null) {
 						channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
 								.append(MQPREFIX)
@@ -145,8 +170,7 @@ public class pcfChannel {
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
 										"channelName", channelName,
-										"cluster",channelCluster,
-										"connection", ""
+										"cluster",channelCluster
 										)
 								, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 					} else {
@@ -279,12 +303,12 @@ public class pcfChannel {
 					}
 					
 				}
-				
 			}
-		}		
+		}
+		
 	}
 
-    
+
 	private String GetChannelType(int chlType) {
 		
 		String channelType = "";
@@ -389,11 +413,12 @@ public class pcfChannel {
 					i.set(0);
 				}
 	        } catch (Exception e) {
-	        	System.out.println("Ignore channel error ");
+	        	log.info("Unable to set channel status ");
 	        }
 		}
 		
 	}
 
+	
     
 }

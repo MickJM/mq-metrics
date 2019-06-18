@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -41,6 +42,8 @@ import com.ibm.mq.headers.pcf.PCFException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples;
 import io.prometheus.client.CollectorRegistry;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
@@ -121,6 +124,9 @@ public class MQConnection {
     @Autowired
     public pcfChannel pcfChannel;
     
+    @Autowired
+    public CollectorRegistry registry;
+    
     @Bean
     public pcfQueueManager QueueManager() {
     	return new pcfQueueManager();
@@ -141,6 +147,7 @@ public class MQConnection {
     	return new pcfChannel();
     }
 
+    
 	// Constructor
 	private MQConnection() {
 	}
@@ -152,7 +159,6 @@ public class MQConnection {
 	@Scheduled(fixedDelayString="${ibm.mq.event.delayInMilliSeconds}")
     public void Scheduler() {
 	
-		
 		try {
 			if (this.messageAgent != null) {
 				ResetIterations();
@@ -477,6 +483,39 @@ public class MQConnection {
 			
 		// Get MQIACF_HANDLE_STATE
 		// https://www.ibm.com/support/knowledgecenter/en/SSFKSJ_9.0.0/com.ibm.mq.ref.adm.doc/q129080_.html
+		
+	}
+	
+	
+	// Not running ...
+	public void ClearPrometheusEntries() {
+		
+		//CollectorRegistry reg = new CollectorRegistry();
+		
+		Enumeration<MetricFamilySamples> coll = registry.metricFamilySamples();
+		while (coll.hasMoreElements()) {
+			MetricFamilySamples metric = coll.nextElement();
+			//Collector col = (Collector) coll;
+			log.info("metric: " + metric.name);
+			if (metric.name.startsWith("mq:")) {
+		//		registry.unregister(coll);
+	
+			}
+		};
+		
+		
+		/*
+		Iterator<MetricFamilySamples> coll = registry.metricFamilySamples().asIterator();
+		while (coll.hasNext()) {
+			MetricFamilySamples metric = coll.next();
+			//Collector col = (Collector) coll;
+			log.info("metric: " + metric.name);
+			if (metric.name.startsWith("mq:")) {
+				coll.remove();
+	
+			}
+		};
+		*/
 		
 	}
 	
