@@ -49,8 +49,6 @@ public class pcfChannel {
     
     }
 
-    private String UniqueChannelName = null;
-    
 	@Value("${ibm.mq.objects.channels.exclude}")
     private String[] excludeChannels;
 	@Value("${ibm.mq.objects.channels.include}")
@@ -63,8 +61,8 @@ public class pcfChannel {
     private Map<String,AtomicInteger>bytesSent = new HashMap<String, AtomicInteger>();
     
     //
-    @Autowired
-    private CollectorRegistry registry;
+    //@Autowired
+    //private CollectorRegistry registry;
     
     //public void setCollectorRegistry(CollectorRegistry registry) {
     //	this.registry = registry;
@@ -123,9 +121,29 @@ public class pcfChannel {
 					PCFMessage pcfStatus = pcfResp[0];
 					//for (PCFMessage pcfMessage : pcfResp) {
 						
-						int channelStatus = pcfStatus.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
-						String conn = pcfStatus.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
+					int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
+					String conn = pcfResp[0].getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
 
+					AtomicInteger c = channelStatusMap.get(channelName);
+					if (c == null) {
+						channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
+								.append(MQPREFIX)
+								.append("channelStatus").toString(), 
+								Tags.of("queueManagerName", this.queueManager,
+										"channelType", channelType,
+										"channelName", channelName,
+										"cluster", channelCluster
+										)
+								, new AtomicInteger(channelStatus)));
+					} else {
+						c.set(channelStatus);
+					}
+						
+					//}
+
+				} catch (PCFException pcfe) {
+					if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
+						
 						AtomicInteger c = channelStatusMap.get(channelName);
 						if (c == null) {
 							channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
@@ -134,27 +152,7 @@ public class pcfChannel {
 									Tags.of("queueManagerName", this.queueManager,
 											"channelType", channelType,
 											"channelName", channelName,
-											"cluster",channelCluster
-											)
-									, new AtomicInteger(channelStatus)));
-						} else {
-							c.set(channelStatus);
-						}
-						
-					//}
-
-				} catch (PCFException pcfe) {
-					if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
-						
-						AtomicInteger c = channelStatusMap.get(this.UniqueChannelName);
-						if (c == null) {
-							channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("channelStatus").toString(), 
-									Tags.of("queueManagerName", this.queueManager,
-											"channelName", channelName,
-											"channelType", channelType,				
-											"cluster",channelCluster											)
+											"cluster", channelCluster)
 									, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 						} else {
 							c.set(MQConstants.MQCHS_INACTIVE);
@@ -162,7 +160,7 @@ public class pcfChannel {
 					}
 					
 				} catch (Exception e) {
-					AtomicInteger c = channelStatusMap.get(this.UniqueChannelName);
+					AtomicInteger c = channelStatusMap.get(channelName);
 					if (c == null) {
 						channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
 								.append(MQPREFIX)
@@ -170,7 +168,7 @@ public class pcfChannel {
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
 										"channelName", channelName,
-										"cluster",channelCluster
+										"cluster", channelCluster
 										)
 								, new AtomicInteger(MQConstants.MQCHS_INACTIVE)));
 					} else {

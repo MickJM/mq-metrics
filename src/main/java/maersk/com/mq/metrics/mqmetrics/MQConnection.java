@@ -124,8 +124,8 @@ public class MQConnection {
     @Autowired
     public pcfChannel pcfChannel;
     
-    @Autowired
-    public CollectorRegistry registry;
+    //@Autowired
+    //public CollectorRegistry registry;
     
     @Bean
     public pcfQueueManager QueueManager() {
@@ -487,11 +487,13 @@ public class MQConnection {
 	}
 	
 	
+	
 	// Not running ...
 	public void ClearPrometheusEntries() {
 		
 		//CollectorRegistry reg = new CollectorRegistry();
-		
+	
+		/*
 		Enumeration<MetricFamilySamples> coll = registry.metricFamilySamples();
 		while (coll.hasMoreElements()) {
 			MetricFamilySamples metric = coll.nextElement();
@@ -502,7 +504,7 @@ public class MQConnection {
 	
 			}
 		};
-		
+		*/
 		
 		/*
 		Iterator<MetricFamilySamples> coll = registry.metricFamilySamples().asIterator();
@@ -518,7 +520,7 @@ public class MQConnection {
 		*/
 		
 	}
-	
+
 	
 	/*
 	 * Disconnect cleanly from the queue manager
