@@ -85,6 +85,8 @@ public class pcfListener {
      */
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 
+		ResetMetrics();
+		
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER);
 		pcfRequest.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
@@ -245,8 +247,19 @@ public class pcfListener {
 
 	}
 
-	// If the queue manager is not running, set any listeners state not running
+	
+	// Not running
 	public void NotRunning() {
+		SetMetricsValue(0);
+	}
+
+	private void ResetMetrics() {
+		SetMetricsValue(-1);
+		
+	}
+	
+	// If the queue manager is not running, set any listeners state not running
+	public void SetMetricsValue(int val) {
 
 		// For each listener, set the status to indicate its not running, as the ...
 		// ... queue manager is not running
@@ -257,7 +270,7 @@ public class pcfListener {
 	        try {
 				AtomicInteger i = (AtomicInteger) pair.getValue();
 				if (i != null) {
-					i.set(0);
+					i.set(val);
 				}
 	        } catch (Exception e) {
 	        }

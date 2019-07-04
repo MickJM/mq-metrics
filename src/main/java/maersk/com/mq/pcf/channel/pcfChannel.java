@@ -77,6 +77,7 @@ public class pcfChannel {
      */
 	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
 
+		ResetMetrics();
 		
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
@@ -397,9 +398,19 @@ public class pcfChannel {
 		}		
 		return false;
 	}
-
-	// Not running ...
+	
+	// Not running
 	public void NotRunning() {
+		SetMetricsValue(0);
+	}
+
+	private void ResetMetrics() {
+		SetMetricsValue(-1);
+		
+	}
+	
+	// Not running ...
+	private void SetMetricsValue(int val) {
 
 		Iterator<Entry<String, AtomicInteger>> listChannels = this.channelStatusMap.entrySet().iterator();
 		while (listChannels.hasNext()) {
@@ -408,10 +419,52 @@ public class pcfChannel {
 	        try {
 				AtomicInteger i = (AtomicInteger) pair.getValue();
 				if (i != null) {
-					i.set(0);
+					i.set(val);
 				}
 	        } catch (Exception e) {
 	        	log.info("Unable to set channel status ");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicLong>> listMsgRec = this.msgsReceived.entrySet().iterator();
+		while (listMsgRec.hasNext()) {
+	        Map.Entry pair = (Map.Entry)listMsgRec.next();
+	        String key = (String) pair.getKey();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.info("Unable to set Messages Received Status ");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicInteger>> listbytesRec = this.bytesReceived.entrySet().iterator();
+		while (listbytesRec.hasNext()) {
+	        Map.Entry pair = (Map.Entry)listbytesRec.next();
+	        String key = (String) pair.getKey();
+	        try {
+				AtomicInteger i = (AtomicInteger) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.info("Unable to set Bytes Received Status ");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicInteger>> listbytesSent = this.bytesSent.entrySet().iterator();
+		while (listbytesSent.hasNext()) {
+	        Map.Entry pair = (Map.Entry)listbytesSent.next();
+	        String key = (String) pair.getKey();
+	        try {
+				AtomicInteger i = (AtomicInteger) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.info("Unable to set Bytes Received Status ");
 	        }
 		}
 		

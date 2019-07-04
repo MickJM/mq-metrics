@@ -4,7 +4,9 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -57,7 +59,7 @@ public class pcfQueue {
     private Map<String,AtomicLong>queueAgeMap = new HashMap<String, AtomicLong>();
     private Map<String,AtomicInteger>queueOpenInMap = new HashMap<String, AtomicInteger>();
     private Map<String,AtomicInteger>queueOpenOutMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>maxQueueDepthMap = new HashMap<String, AtomicInteger>();
+    private Map<String,AtomicInteger>queueMaxDepthMap = new HashMap<String, AtomicInteger>();
     private Map<String,AtomicInteger>queueHandleMap = new HashMap<String, AtomicInteger>();
     
     private PCFMessageAgent messageAgent;
@@ -168,9 +170,9 @@ public class pcfQueue {
 					
 					// Maximum queue depth
 					value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
-					AtomicInteger maxqd = maxQueueDepthMap.get(queueName);
+					AtomicInteger maxqd = queueMaxDepthMap.get(queueName);
 					if (maxqd == null) {
-						maxQueueDepthMap.put(queueName, Metrics.gauge(new StringBuilder()
+						queueMaxDepthMap.put(queueName, Metrics.gauge(new StringBuilder()
 								.append(MQPREFIX)
 								.append("maxQueueDepth").toString(), 
 								Tags.of("queueManagerName", this.queueManager,
@@ -390,4 +392,139 @@ public class pcfQueue {
 		return queueType;
 	}
 	
+	
+	// Not running
+	public void NotRunning() {
+		SetMetricsValue(0);
+	}
+
+	private void ResetMetrics() {
+		SetMetricsValue(-1);
+		
+	}
+	
+	// If the queue manager is not running, set any listeners state not running
+	public void SetMetricsValue(int val) {
+
+		// For each listener, set the status to indicate its not running, as the ...
+		// ... queue manager is not running
+		Iterator<Entry<String, AtomicInteger>> qdepth = this.queueDepMap.entrySet().iterator();
+		while (qdepth.hasNext()) {
+	        Map.Entry pair = (Map.Entry)qdepth.next();
+	        try {
+				AtomicInteger i = (AtomicInteger) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set QueueDepth metrics");
+	        }
+		}
+		
+		Iterator<Entry<String, AtomicInteger>> deq = this.queueDeqMap.entrySet().iterator();
+		while (deq.hasNext()) {
+	        Map.Entry pair = (Map.Entry)deq.next();
+	        try {
+				AtomicInteger i = (AtomicInteger) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set DeQueued metrics");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicInteger>> enq = this.queueEnqMap.entrySet().iterator();
+		while (enq.hasNext()) {
+	        Map.Entry pair = (Map.Entry)enq.next();
+	        try {
+				AtomicInteger i = (AtomicInteger) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set EnqQueued metrics");
+	        }
+		}
+		
+		Iterator<Entry<String, AtomicLong>> lgd = this.queueLGDMap.entrySet().iterator();
+		while (lgd.hasNext()) {
+	        Map.Entry pair = (Map.Entry)lgd.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set LastGetDate metrics");
+	        }
+		}
+		
+		Iterator<Entry<String, AtomicLong>> lpd = this.queueLPDMap.entrySet().iterator();
+		while (lpd.hasNext()) {
+	        Map.Entry pair = (Map.Entry)lpd.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set LastPutDate metrics");
+	        }
+		}
+		
+		Iterator<Entry<String, AtomicLong>> age = this.queueAgeMap.entrySet().iterator();
+		while (age.hasNext()) {
+	        Map.Entry pair = (Map.Entry)age.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set QueueMessageAge metrics");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicInteger>> oin = this.queueOpenInMap.entrySet().iterator();
+		while (oin.hasNext()) {
+	        Map.Entry pair = (Map.Entry)oin.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set QueueOpenInCount metrics");
+	        }
+		}
+
+		Iterator<Entry<String, AtomicInteger>> oout = this.queueOpenOutMap.entrySet().iterator();
+		while (oout.hasNext()) {
+	        Map.Entry pair = (Map.Entry)oout.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set QueueOpenOutCount metrics");
+	        }
+		}
+		
+		Iterator<Entry<String, AtomicInteger>> max = this.queueMaxDepthMap.entrySet().iterator();
+		while (max.hasNext()) {
+	        Map.Entry pair = (Map.Entry)max.next();
+	        try {
+				AtomicLong i = (AtomicLong) pair.getValue();
+				if (i != null) {
+					i.set(val);
+				}
+	        } catch (Exception e) {
+	        	log.error("Unable to set QueueOpenOutCount metrics");
+	        }
+		}
+		
+	}
+
 }
