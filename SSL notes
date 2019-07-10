@@ -1,3 +1,27 @@
+#
+# Use mutual authentication
+#
+queue manager CMS keystore;
+   keys alias 
+       ibmwebsheremqqmap01 - this has CN=QMAP01 ...
+       mqmetrics - (public key from JKS keystore) this has CN=MQExplorerUser ...
+
+Java app keystore / truststore (same files)
+	MUTUAL authenrication
+	keys
+	    ibmwebspheremqqmap01 (public key from CMS keystore)       
+		ibmwebspheremqmickm 
+	***** SET SSL attribute on channel **** to 'required', label = ibmwebspheremqqmap01
+	should get cert details on channel ....
+	SERIALNUMBER=2C:C6:8B:20,CN=MQExploreUser,OU=TEST,OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB
+	CN=MQExploreUser,OU=TEST,OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB
+	
+Java app keystore / truststore (same files)
+	ONEWAY authenrication
+	keys
+	    ibmwebspheremqqmap01 (public key / root from CMS keystore)       
+	***** SET SSL attribute on channel **** to 'optional', label = ibmwebspheremqqmap01
+	
 
 # create key database ...
 # self signed
@@ -31,7 +55,6 @@ keytool -keystore {queue manager name}jks.jks -storepass Passw0rd -list
 
 8) export the public key
 keytool -export -keystore {queue manager name}jks.jks -storepass Passw0rd -alias ibmwebspheremq{user} -file {queue manager name}jks.arm -rfc
-
 
 9) Import certs ... into the jks keystore
 keytool -import -alias ibmwebspheremq{queue manager} -file {queue manager}.arm -storepass Passw0rd -keystore {queue manager}jks.jks -trustcacert
