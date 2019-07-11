@@ -4,8 +4,8 @@ ibm:
     channel: ADMIN.TLS.SVRCONN
     connName: localhost(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
-    useSSL: true
-    user:
+    useSSL: false
+    user: 
     password:
     objects:
       queues:
