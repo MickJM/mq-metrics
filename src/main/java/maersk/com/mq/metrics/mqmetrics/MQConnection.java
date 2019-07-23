@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.validation.constraints.Null;
 
@@ -28,6 +29,7 @@ import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
@@ -51,6 +53,9 @@ import io.prometheus.client.CollectorRegistry;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
+//import maersk.com.mq.metricsummary.Channels;
+//import maersk.com.mq.metricsummary.Channel;
+import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
 
 /***
@@ -128,31 +133,43 @@ public class MQConnection {
     public pcfChannel pcfChannel;
     
     //@Autowired
+    public MQMetricSummary metricSummary;
+    
+    //@Autowired
     //public CollectorRegistry registry;
 
     @Bean
     public pcfQueueManager QueueManager() {
     	return new pcfQueueManager();
     }
-    
     @Bean
     public pcfListener Listener() {
     	return new pcfListener();
     }
-    
     @Bean
     public pcfQueue Queue() {
     	return new pcfQueue();
     }
+    
+    @Bean("MetricsSummary")
+    public MQMetricSummary metricSummary() {
+    	this.metricSummary = new MQMetricSummary();
+    	return this.metricSummary;
+    }
+
+    //@PostConstruct
 
     @Bean
+    @DependsOn("MetricsSummary")
     public pcfChannel Channel() {
-    	return new pcfChannel();
+    	return new pcfChannel(this.metricSummary);
     }
+
 
     
 	// Constructor
 	private MQConnection() {
+		log.info("Loading existing metrics");
 	}
 	
 
@@ -225,15 +242,6 @@ public class MQConnection {
 		env.put(MQConstants.CHANNEL_PROPERTY, this.channel);
 		env.put(MQConstants.PORT_PROPERTY, this.port);
 		
-		if (this._debug) {
-			log.info("Host 		: " + this.hostName);
-			log.info("Channel 	: " + this.channel);
-			log.info("Port 		: " + this.port);
-			log.info("Queue Man : " + this.queueManager);
-			log.info("User 		: " + this.userId);
-			log.info("Password  : **********");
-
-		}
 		/*
 		 * 
 		 * If a username and password is provided, then use it
@@ -250,11 +258,20 @@ public class MQConnection {
 		}
 		env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 
-		// If SSL is enabled (default)
-		if (this.bUseSSL) {
-			if (this._debug) {
+		if (this._debug) {
+			log.info("Host 		: " + this.hostName);
+			log.info("Channel 	: " + this.channel);
+			log.info("Port 		: " + this.port);
+			log.info("Queue Man : " + this.queueManager);
+			log.info("User 		: " + this.userId);
+			log.info("Password  : **********");
+			if (this.bUseSSL) {
 				log.info("SSL is enabled ....");
 			}
+		}
+		
+		// If SSL is enabled (default)
+		if (this.bUseSSL) {
 			System.setProperty("javax.net.ssl.trustStore", this.truststore);
 	        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
 	        System.setProperty("javax.net.ssl.trustStoreType","JKS");

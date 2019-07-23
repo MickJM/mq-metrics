@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.integration.support.management.MetricsCaptor.GaugeBuilder;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +31,8 @@ import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.Gauge;
 import io.prometheus.client.Gauge.Builder;
+import maersk.com.mq.metricsummary.Channel;
+import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
 public class pcfChannel {
@@ -59,7 +63,16 @@ public class pcfChannel {
     private Map<String,AtomicLong>msgsReceived = new HashMap<String, AtomicLong>();
     private Map<String,AtomicInteger>bytesReceived = new HashMap<String, AtomicInteger>();
     private Map<String,AtomicInteger>bytesSent = new HashMap<String, AtomicInteger>();
+
+    //@Autowired
+    //private ApplicationContext context;
+
+    //@Autowired
+    private MQMetricSummary metricSummary;
     
+    private int metricSummaryCount = 0;
+    //@Autowired
+    //private MQMetricSummary metricSummary;
     //
     //@Autowired
     //private CollectorRegistry registry;
@@ -69,7 +82,37 @@ public class pcfChannel {
     //}
     
     //
-    public pcfChannel() {
+    
+    public pcfChannel(MQMetricSummary metricSummary) {
+    	log.info("pcfChannel object");
+    
+		if (metricSummary != null) {
+	    	log.info("MetricSummary exists ....");
+	    	this.metricSummary = metricSummary;
+	    	
+		} else {
+	    	log.info("MetricSummary does not exist ....");
+			
+		}
+		
+    	//this.context.getBean(MQMetricSummary.class).LoadMetrics();
+		if (this.metricSummary != null) {
+	    	this.metricSummary.LoadMetrics();			
+		} else {
+	    	log.info("this.metricsSummary object has not been created !!");
+			
+		}
+
+		//Channel c = this.context.getBean(MQMetricSummary.class).GetChannelValue("channelOne");
+		//this.metricSummary.LoadMetrics();
+		//Channel c = this.metricSummary.GetChannelValue("channelOne");
+		
+		//log.info("ChannelOne: " + c.getName() + " " + c.getThismonth());
+		
+		if (this.metricSummary != null) {
+			log.info("NOT equal NULL");
+		}
+			
     }
     
     /*
@@ -139,7 +182,7 @@ public class pcfChannel {
 					} else {
 						c.set(channelStatus);
 					}
-						
+
 					//}
 
 				} catch (PCFException pcfe) {
@@ -204,6 +247,16 @@ public class pcfChannel {
 					} else {
 						r.set(msgsOverChannels);
 					}
+
+					if (this.metricSummary != null) {
+						this.metricSummary.UpdateCounts(channelName
+								, channelType
+								, this.queueManager
+								, channelCluster
+								, msgsOverChannels);
+					}
+
+					
 				} catch (Exception e) {
 					AtomicLong r = msgsReceived.get(channelName);
 					if (r == null) {
@@ -219,7 +272,14 @@ public class pcfChannel {
 					} else {
 						r.set(0);
 					}
-					
+
+					if (this.metricSummary != null) {
+						this.metricSummary.UpdateCounts(channelName
+								, channelType
+								, this.queueManager
+								, channelCluster
+								, 0);
+					}
 				}
 				
 				
@@ -303,6 +363,15 @@ public class pcfChannel {
 					
 				}
 			}
+		}
+		
+		this.metricSummaryCount++;
+		log.info("SummaryCount = " + this.metricSummaryCount);
+		
+		if ((this.metricSummaryCount % 3) == 0) {
+			this.metricSummaryCount = 0;
+			log.info("SummaryCount = " + this.metricSummaryCount);
+			this.metricSummary.SaveMetrics();
 		}
 		
 	}

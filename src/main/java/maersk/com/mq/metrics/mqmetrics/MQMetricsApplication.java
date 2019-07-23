@@ -6,6 +6,8 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+@ComponentScan("maersk.com.mq.metrics.mqmetrics.MQConnection")
+@ComponentScan("maersk.com.mq.pcf.channel.pcfChannel")
 @SpringBootApplication
 @EnableScheduling
 public class MQMetricsApplication {

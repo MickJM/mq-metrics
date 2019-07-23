@@ -1,12 +1,12 @@
 ibm:
   mq:
     queueManager: QMAP01
-    channel: ADMIN.TLS.SVRCONN
+    channel: MQ.MONITOR.SVRCONN
     connName: localhost(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     useSSL: false
     user: 
-    password:
+    password: 
     objects:
       queues:
         include: "*"
