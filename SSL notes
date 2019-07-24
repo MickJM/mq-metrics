@@ -1,15 +1,45 @@
+#
+# Use mutual authentication
+#
+queue manager CMS keystore;
+   keys alias 
+       ibmwebsheremqqmap01 - this has CN=QMAP01 ...
+       mqmetrics - (public key from JKS keystore) this has CN=MQExplorerUser ...
+
+Java app keystore / truststore (same files)
+	MUTUAL authenrication
+	keys
+	    ibmwebspheremqqmap01 (public key from CMS keystore)       
+		ibmwebspheremqmickm 
+	***** SET SSL attribute on channel **** to 'required', label = ibmwebspheremqqmap01
+	should get cert details on channel ....
+	SERIALNUMBER=2C:C6:8B:20,CN=MQExploreUser,OU=TEST,OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB
+	CN=MQExploreUser,OU=TEST,OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB
+	
+Java app keystore / truststore (same files)
+	ONEWAY authenrication
+	keys
+	    ibmwebspheremqqmap01 (public key / root from CMS keystore)       
+	***** SET SSL attribute on channel **** to 'optional', label = ibmwebspheremqqmap01
+	
 
 # create key database ...
 # self signed
 
 1) create empty keystore
-runmqakm -keydb -create -db key.kdb -pw Passw0rd -stash 
+runmqakm -keydb -create -db qmap01key.kdb -pw Passw0rd -stash 
 
 2) list certs
-runmqakm -cert -list -db key.kdb -stashed
+runmqakm -cert -list -db qmap01key.kdb -stashed
+
+3a) create csr
+runmqckm -certreq -create -label ibmwebspheremqqmap01 -stashed -size 2048 -sig_alg SHA256withRSA -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -file qmap01.csr
+runmqakm -certreq -create -label ibmwebspheremqqmap01 -stashed -size 2048 -sig_alg SHA256withRSA -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -file qmap01.csr
+
 
 3) create cert
 runmqakm -cert -create -label ibmwebspheremq{queue manager name} -stashed -expire 730 -size 2048 -dn "CN={Queue manager name},OU={environment},OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email={support email@maersk.com}" -db key.kdb -ca false
+runmqakm -cert -create -label ibmwebspheremqqmap01 -stashed -expire 730 -size 2048 -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -ca false
 
 4) show cert details  
 runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremq{queue manager name}
@@ -26,12 +56,16 @@ keytool -keystore {queue manager name}jks.jks -storepass Passw0rd -list
 8) export the public key
 keytool -export -keystore {queue manager name}jks.jks -storepass Passw0rd -alias ibmwebspheremq{user} -file {queue manager name}jks.arm -rfc
 
-
 9) Import certs ... into the jks keystore
 keytool -import -alias ibmwebspheremq{queue manager} -file {queue manager}.arm -storepass Passw0rd -keystore {queue manager}jks.jks -trustcacert
 
 10) list contents of queue managers keystore
 runmqakm -cert -list -db key.kdb -stashed
+
+11a) add ca's
+runmqakm -cert -add -db qmap01key.kdb -stashed -file CA.cer -trust enable -label caroot
+runmqakm -cert -add -db qmap01key.kdb -stashed -file Int.cer -trust enable -label int01
+
 
 11) add the extracted cert to the queue managers keystore ... only required for mutual authentication 
 runmqakm -cert -add -db key.kdb -stashed -file qmap01jks.arm -trust enable -label ibmwebspheremq{user}

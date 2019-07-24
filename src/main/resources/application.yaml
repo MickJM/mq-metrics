@@ -5,8 +5,8 @@ ibm:
     connName: override
     sslCipherSpec: override
     useSSL: true
-    user:
-    password:
+    user: 
+    password: 
     objects:
       queues:
         include: "*"
