@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Timestamp;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -412,7 +413,10 @@ public class MQConnection {
 	 * Update the Channel Metrics
 	 * 
 	 */
-	private void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
+	private void UpdateChannelMetrics() throws MQException, IOException, 
+		PCFException, 
+		MQDataException, 
+		ParseException {
 		
 		this.pcfChannel.UpdateChannelMetrics();
 		

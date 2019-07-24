@@ -1,6 +1,7 @@
 package maersk.com.mq.pcf.channel;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -38,11 +39,19 @@ import maersk.com.mq.metricsummary.MQMetricSummary;
 public class pcfChannel {
 
 	private static final String MQPREFIX = "mq:";
-
+	private static final int SAVEMETRICS = 0;
+	
 	private String queueManager;
 
 	@Value("${application.debug:false}")
     private boolean _debug;
+	@Value("${application.save.summary.stats:3}")
+    private int saveSummaryStats;
+
+	@Value("${ibm.mq.objects.channels.exclude}")
+    private String[] excludeChannels;
+	@Value("${ibm.mq.objects.channels.include}")
+    private String[] includeChannels;
 	
     private Logger log = Logger.getLogger(this.getClass());
 
@@ -52,12 +61,7 @@ public class pcfChannel {
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
     
     }
-
-	@Value("${ibm.mq.objects.channels.exclude}")
-    private String[] excludeChannels;
-	@Value("${ibm.mq.objects.channels.include}")
-    private String[] includeChannels;
-		
+	
     //Channel maps
     private Map<String,AtomicInteger>channelStatusMap = new HashMap<String, AtomicInteger>();
     private Map<String,AtomicLong>msgsReceived = new HashMap<String, AtomicLong>();
@@ -118,7 +122,7 @@ public class pcfChannel {
     /*
      * Get the channel metrics
      */
-	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException {
+	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
 
 		ResetMetrics();
 		
@@ -368,10 +372,11 @@ public class pcfChannel {
 		this.metricSummaryCount++;
 		log.info("SummaryCount = " + this.metricSummaryCount);
 		
-		if ((this.metricSummaryCount % 3) == 0) {
+		if ((this.metricSummaryCount % this.saveSummaryStats) == SAVEMETRICS) {
 			this.metricSummaryCount = 0;
 			log.info("SummaryCount = " + this.metricSummaryCount);
 			this.metricSummary.SaveMetrics();
+			this.metricSummary.DoWeNeedToRollOver();
 		}
 		
 	}

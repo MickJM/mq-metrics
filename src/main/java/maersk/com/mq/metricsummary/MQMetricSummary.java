@@ -5,8 +5,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -17,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,72 +35,43 @@ import io.micrometer.core.instrument.Tags;
 public class MQMetricSummary {
 	
 	private static final String MQPREFIX = "mq:";
+	private static final int DAY_ONE = 1;
 	
+	@Value("${application.debug:false}")
+    private boolean _debug;
+	@Value("${application.save.metrics.filename:currentChannels.json}")
+    private String metricsFileName;
+
     private Logger log = Logger.getLogger(this.getClass());
     private Channels channels;
     
     //Channel maps
     private Map<MetricChannelDetails,AtomicLong>cummChannelCounts = new HashMap<MetricChannelDetails, AtomicLong>();
+    private Map<String,AtomicLong>loadedCounts = new HashMap<String, AtomicLong>();
 
     private int timesCalled = 0;
     
 	public MQMetricSummary() {
-		log.info("Invoking MQMetricSummary");
+		if (this._debug) { log.info("Invoking MQMetricSummary"); }
 	}
 
 	public void LoadMetrics() {
 		
-		
 		try {
 			LoadMetricsFromFile();
-			CreateNewMetricsFile();
 			
 		} catch (IOException e) {
-			log.info("Error: " + e.getMessage());
+			log.error("Error: " + e.getMessage());
 		}
 		
 	}
 
-	//
-	private void CreateNewMetricsFile() {
-	
-		String fileName = "currentChannels_02.json";
-		Path path = Paths.get(fileName);
-		
-		List<Channel> listChannel = new ArrayList<Channel>();
-		Channel c1 = new Channel();
-		c1.setName("TEST.CHANNEL.ONE");
-		c1.setLastmonth(123l);
-		c1.setThismonth(345l);
-		listChannel.add(c1);
-		
-		Channels cs1 = new Channels();
-		cs1.setQueueManagerName("TESTQM");
-		cs1.setCurrentDate("TodaysDate");
-		cs1.setChannel(listChannel);
-		
-		
-	//	byte[] bFileData = fileData.getBytes();
-		
-	//	byte[] strToBytes = fileData.getBytes();
-		try {
-			
-			log.info("Creating JSON test file");
-			
-	//		Files.write(path,bFileData);
-			ObjectMapper objectMapper = new ObjectMapper();
-			objectMapper.writeValue(new File(fileName),cs1);
-			
-		} catch (IOException e) {
-			log.error("creating new JSON file ... : " + e.getMessage());
-		}
-		
-		
-	}
-	
+	// Load metrics from saved file
 	private void LoadMetricsFromFile() throws IOException {
 
-		byte[] mapData = Files.readAllBytes(Paths.get("currentChannels_03.json"));
+		if (this._debug) { log.info("Loading monthly metrics from file ... : " + this.metricsFileName); }
+		
+		byte[] mapData = Files.readAllBytes(Paths.get(this.metricsFileName));
 		
 		try {
 			ObjectMapper objectMapper = new ObjectMapper();
@@ -124,40 +99,22 @@ public class MQMetricSummary {
 			long thisMonth = c.getThismonth();
 		
 			UpdateCounts(channelName, channelType, qmName, clusterName, thisMonth);
-			/*
-			AtomicLong c = cummChannelCounts.get(name);
-			if (c == null) {
-				cummChannelCounts.put(name, Metrics.gauge(new StringBuilder()
-						.append(MQPREFIX)
-						.append("cummulativeChannelCounts").toString(), 
-						Tags.of("queueManagerName", "QMAP01",
-								"channelType", "channel",
-								"channelName", name,
-								"cluster", "ClusterA"
-								)
-						, new AtomicLong(cs.getThismonth())));
-			} else {
-				c.set(cs.getThismonth());
-			}
-			*/
+			StoreCountsInMemeoryMap(channelName, thisMonth);
+			
 		}
-		
 	}
 	
-	
-	/*
-	public Channel GetChannelValue(String channelName) {
 		
-		for (Channel c : this.channels.getChannel()) {
-			if (c.getName().equals(channelName)) {
-				return c;
-			}
-		}
-		return null;
+	// Store counts in memory from the initial load 
+	private void StoreCountsInMemeoryMap(String channelName, long val) {
+
+		AtomicLong c = loadedCounts.get(channelName);
+		if (c == null) {
+			loadedCounts.put(channelName, new AtomicLong(val));
+		}		
 	}
-	*/
 	
-	// Create metrics 
+	// Create metrics from passed in params
 	public void UpdateCounts(String channelName, String channelType, String qm, String clusterName,
 			long count) {
 
@@ -168,6 +125,10 @@ public class MQMetricSummary {
 		mcd.setQueueManagerName(qm);
 		
 		AtomicLong c = FindValue(mcd);
+		AtomicLong init = loadedCounts.get(channelName);
+		if (init == null) {
+			init = new AtomicLong(0);
+		}
 		
 		if (c == null) {
 			cummChannelCounts.put(mcd, Metrics.gauge(new StringBuilder()
@@ -179,16 +140,61 @@ public class MQMetricSummary {
 							"cluster", clusterName
 							)
 					, new AtomicLong(count)));
+			
 		} else {
-			long c1 = c.get() + count;
-			log.info("Counts: " + channelName + c1 + " - " + count);
+			
+			long c1 = count + init.get();
 			c.set(c1);
-		}
-		
-		//ResetMetrics(0L);
-		
+			
+		}			
 	}
 
+	// Do we need to roll over this months metrics 
+	public void DoWeNeedToRollOver() throws ParseException {
+
+		Date today = new Date();
+		Calendar cal = Calendar.getInstance();
+		Calendar met = Calendar.getInstance();
+
+		// Have we already rolled over ?
+		String d = this.channels.getCurrentDate();
+		Date metricDate = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS")
+				.parse(d);
+		met.setTime(metricDate);
+		
+		// Should be roll over 'this month' to 'last month' ?
+		cal.setTime(today);
+		if (this._debug) { 
+			log.info("Today day of week: " + cal.get(Calendar.DAY_OF_MONTH));
+			log.info(" File day of week: " + met.get(Calendar.DAY_OF_MONTH)); 
+		}
+		
+		// Day of month already match, assume its been updated, so dont roll over again
+		if (cal.get(Calendar.DAY_OF_MONTH) == met.get(Calendar.DAY_OF_MONTH)) {
+			return;
+		}
+		// if its not the 1st day of the month, then dont roll over		
+		if (cal.get(Calendar.DAY_OF_MONTH) == DAY_ONE) {
+			RollValues();
+		}
+		
+	}
+	
+	// Roll over this month to last month ... so we keep 2 sets
+	private void RollValues() {
+
+		this.channels.setCurrentDate(new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS").format(new Date()));		
+		for (Channel c : this.channels.getChannel()) {
+			c.setLastmonth(c.getThismonth());
+			c.setThismonth(0l);
+		}
+		
+	}
+	
+	
+	// Find the value to update
+	//   currently only checking on channelName
+	//
 	private AtomicLong FindValue(MetricChannelDetails mcd) {
 	
 		Iterator<Entry<MetricChannelDetails, AtomicLong>> listChannels = this.cummChannelCounts.entrySet().iterator();
@@ -207,16 +213,15 @@ public class MQMetricSummary {
 	}
 	
 	public void SaveMetrics() {
-		log.info("Saving metric summary to disk ...");		
 		
-		String fileName = "currentChannels_03.json";
+		if (this._debug) { log.info("Saving metric summary to disk ..."); }
+		
+		String fileName = this.metricsFileName;
 		Path path = Paths.get(fileName);
-
 		
 		Channels channels = new Channels();
 		List<Channel> channelList = new ArrayList<Channel>();
 		
-		Boolean firstEntry = true;
 		Iterator<Entry<MetricChannelDetails, AtomicLong>> listChannels = this.cummChannelCounts.entrySet().iterator();
 		
 		// Get the first entry, so we get the queue manager name
@@ -246,6 +251,7 @@ public class MQMetricSummary {
 		
 		try {
 			
+			
 			log.info("Creating JSON file :" + fileName );
 			ObjectMapper objectMapper = new ObjectMapper();
 			objectMapper.writeValue(new File(fileName),channels);
@@ -257,26 +263,6 @@ public class MQMetricSummary {
 		
 	}
 	
-	private void ResetMetrics(long val) {
-		
-		Iterator<Entry<MetricChannelDetails, AtomicLong>> listChannels = this.cummChannelCounts.entrySet().iterator();
-		while (listChannels.hasNext()) {
-	        Map.Entry pair = (Map.Entry)listChannels.next();
-	        MetricChannelDetails key = (MetricChannelDetails) pair.getKey();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				log.info("key : " + key.toString());
-			
-				//	if (i != null) {
-			//		i.set(val);
-			//	}
-	        } catch (Exception e) {
-	        	log.error("Unable to set channel status ");
-	        }
-		}
-
-		
-	}
 }
 
 
