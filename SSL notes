@@ -28,13 +28,17 @@ Java app keystore / truststore (same files)
 
 1) create empty keystore
 runmqakm -keydb -create -db qmap01key.kdb -pw Passw0rd -stash 
+runmqakm -keydb -create -db test.kdb -pw Passw0rd -stash 
 
 2) list certs
 runmqakm -cert -list -db qmap01key.kdb -stashed
+runmqakm -cert -list -db tstqpd01key.kdb -stashed
+runmqakm -cert -list -db test.kdb -stashed
 
 3a) create csr
 runmqckm -certreq -create -label ibmwebspheremqqmap01 -stashed -size 2048 -sig_alg SHA256withRSA -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -file qmap01.csr
 runmqakm -certreq -create -label ibmwebspheremqqmap01 -stashed -size 2048 -sig_alg SHA256withRSA -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -file qmap01.csr
+runmqakm -certreq -create -label ibmwebspheremqtest -stashed -size 2048 -sig_alg SHA256withRSA -dn "CN=SMQ.DEV.TEST,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db test.kdb -file test.csr
 
 
 3) create cert
@@ -46,6 +50,8 @@ runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremq{queue manager
 
 5) extract cert
 runmqakm -cert -extract -db key.kdb -stashed -label ibmwebspheremq{queue manager name} -target {queue manager name}.arm -format ascii
+runmqakm -cert -extract -db tstqpd01key.kdb -stashed -label ibmwebspheremqtstqpd01 -target tstqpd01.arm -format ascii
+runmqakm -cert -extract -db tstqpd01key.kdb -stashed -label MQ_CA -target mq_ca.arm -format ascii
 
 6) create cert for application
 keytool -genkey -alias ibmwebspheremq{user} -keyalg RSA -sigalg SHA256withRSA -dname "CN={Application},OU={environment},OU=QMGR,OU=ADMIN,O=DevOps,L=Maidenhead,ST=GB" -keystore {queue manager name}jks.jks -storetype jks -storepass Passw0rd -keypass Passw0rd -validity 365 -keysize 2048
@@ -58,6 +64,10 @@ keytool -export -keystore {queue manager name}jks.jks -storepass Passw0rd -alias
 
 9) Import certs ... into the jks keystore
 keytool -import -alias ibmwebspheremq{queue manager} -file {queue manager}.arm -storepass Passw0rd -keystore {queue manager}jks.jks -trustcacert
+
+keytool -import -alias mq_ca -file mq_ca.arm -storepass Passw0rd -keystore tstqpd01jks.jks -trustcacert
+keytool -import -alias ibmwebspheremqtstqpd01 -file tstqpd01.arm -storepass Passw0rd -keystore tstqpd01jks.jks -trustcacert
+
 
 10) list contents of queue managers keystore
 runmqakm -cert -list -db key.kdb -stashed

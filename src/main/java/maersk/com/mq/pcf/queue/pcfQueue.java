@@ -22,16 +22,14 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 
 @Component
-public class pcfQueue {
+public class pcfQueue extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
+    private Logger log = Logger.getLogger(this.getClass());
 
 	private String queueManager;
-
-	@Value("${application.debug:false}")
-    private boolean _debug;
 	
 	@Value("${ibm.mq.objects.queues.exclude}")
     private String[] excludeQueues;
@@ -48,7 +46,6 @@ public class pcfQueue {
 	}
 
     
-    private Logger log = Logger.getLogger(this.getClass());
 
     //Queue maps
     private Map<String,AtomicInteger>queueDepMap = new HashMap<String, AtomicInteger>();
@@ -145,7 +142,7 @@ public class pcfQueue {
 						inC.set(openInvalue);
 					}
 
-					// Open ouput count
+					// Open output count
 					int openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 					AtomicInteger outC = queueOpenOutMap.get(queueName);
 					if (outC == null) {
@@ -163,10 +160,9 @@ public class pcfQueue {
 						outC.set(openOutvalue);
 					}
 
-					if ((openInvalue > 0) || (openOutvalue > 0) ) {
-					//	ProcessQueueHandlers(queueName);
-						
-					}
+					//if ((openInvalue > 0) || (openOutvalue > 0) ) {
+					//	ProcessQueueHandlers(queueName);	
+					//}
 					
 					// Maximum queue depth
 					value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
@@ -399,7 +395,7 @@ public class pcfQueue {
 	}
 
 	private void ResetMetrics() {
-		SetMetricsValue(-1);
+		SetMetricsValue(0);
 		
 	}
 	

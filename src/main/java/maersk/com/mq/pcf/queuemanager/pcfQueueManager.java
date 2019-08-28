@@ -20,12 +20,14 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQConnection;
+import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 @Component
-public class pcfQueueManager {
+public class pcfQueueManager extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
+    private Logger log = Logger.getLogger(this.getClass());
 
 	private String queueManager;
 
@@ -33,12 +35,7 @@ public class pcfQueueManager {
 	private long resetIterations;
 	//public void setResetIterations(long value) {
 	//	this.resetIterations = value;
-	//}
-	
-	@Value("${application.debug:false}")
-    private boolean _debug;
-	
-    private Logger log = Logger.getLogger(this.getClass());
+	//}	
 
     private PCFMessageAgent messageAgent = null;
 
@@ -87,11 +84,11 @@ public class pcfQueueManager {
 			mqReset.put(this.queueManager, 
 					Metrics.gauge(new StringBuilder()
 							.append(MQPREFIX)
-							.append("ResetIterations").toString(),  
+							.append("resetIterations").toString(),  
 					Tags.of("queueManagerName", this.queueManager),
-					new AtomicLong(resetIterations)));
+					new AtomicLong(this.resetIterations)));
 		} else {
-			q.set(0);
+			q.set(this.resetIterations);
 		}        
 		
 	}
@@ -116,6 +113,7 @@ public class pcfQueueManager {
 	        PCFMessage response = pcfResponse[0];
 	        String clusterNames = response.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME);
 	        setQueueManagerClusterName(clusterNames.trim());
+
         } catch (Exception e) {
         	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
         	setQueueManagerClusterName("");
@@ -183,18 +181,22 @@ public class pcfQueueManager {
 	/*
 	 * Called from the main class, if we are not running, set the status
 	 */
-	public void NotRunning() {
+	public void NotRunning(String qm) {
 
+		if (this.queueManager != null) {
+			qm = this.queueManager;
+		}
+		
 		// Set the queue manager status to indicate that its not running
-		AtomicInteger q = qmStatusMap.get(this.queueManager);
+		AtomicInteger q = qmStatusMap.get(qm);
 		if (q == null) {
 			qmStatusMap.put(this.queueManager, 
 					Metrics.gauge("mq:queueManagerStatus", 
-					Tags.of("queueManagerName", this.queueManager,
+					Tags.of("queueManagerName", qm,
 							"cluster","unknown"), 
-					new AtomicInteger(0)));
+					new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 		} else {
-			q.set(0);
+			q.set(MQPCFConstants.PCF_INIT_VALUE);
 		}        
 		
 	}

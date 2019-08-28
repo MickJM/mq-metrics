@@ -22,19 +22,14 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 
 @Component
-public class pcfListener {
+public class pcfListener extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
-
-	private String queueManager;
-
-	@Value("${application.debug:false}")
-    private boolean _debug;
-	
     private Logger log = Logger.getLogger(this.getClass());
 
+	private String queueManager;
     private PCFMessageAgent messageAgent;
     
     /*
@@ -85,7 +80,7 @@ public class pcfListener {
      */
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 
-		ResetMetrics();
+		ResetMetrics(MQPCFConstants.PCF_INIT_VALUE);
 		
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER);
 		pcfRequest.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
@@ -96,8 +91,8 @@ public class pcfListener {
         int[] pcfStatAttrs = { 	MQConstants.MQIACF_ALL };
 		// For each response back, loop to process 
 		for (PCFMessage pcfMsg : pcfResponse) {	
-			int portNumber = 0;
-			int type = -1;
+			int portNumber = MQPCFConstants.BASE;
+			int type = MQPCFConstants.NOTSET;
 			String listenerName = 
 					pcfMsg.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME).trim(); 
 			int listType = 
@@ -143,9 +138,9 @@ public class pcfListener {
 												"listenerName", listenerName,
 												"type",Integer.toString(listType),
 												"port", Integer.toString(portNumber))
-										, new AtomicInteger(0)));
+										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 							} else {
-								l.set(0);
+								l.set(MQPCFConstants.PCF_INIT_VALUE);
 							}
 						}
 						if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {
@@ -159,9 +154,9 @@ public class pcfListener {
 												"listenerName", listenerName,
 												"type",Integer.toString(listType),
 												"port", Integer.toString(portNumber))
-										, new AtomicInteger(0)));
+										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 							} else {
-								l.set(0);
+								l.set(MQPCFConstants.PCF_INIT_VALUE);
 							}
 						}
 
@@ -176,9 +171,9 @@ public class pcfListener {
 											"listenerName", listenerName,
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
-									, new AtomicInteger(0)));
+									, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 						} else {
-							l.set(0);
+							l.set(MQPCFConstants.PCF_INIT_VALUE);
 						}
 					}				
 				}
@@ -249,12 +244,12 @@ public class pcfListener {
 
 	
 	// Not running
-	public void NotRunning() {
-		SetMetricsValue(0);
-	}
+	//public void NotRunning() {
+	//	SetMetricsValue(0);
+	//}
 
-	private void ResetMetrics() {
-		SetMetricsValue(-1);
+	public void ResetMetrics(int val) {
+		SetMetricsValue(val);
 		
 	}
 	

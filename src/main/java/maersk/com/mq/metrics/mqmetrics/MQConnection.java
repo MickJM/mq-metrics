@@ -35,6 +35,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import com.ibm.mq.MQEnvironment;
 import com.ibm.mq.MQException;
@@ -67,15 +68,12 @@ import maersk.com.mq.pcf.channel.pcfChannel;
  * 
  */
 @Component
-public class MQConnection {
-
-	//
-	private static final String MQPREFIX = "mq:";
+public class MQConnection extends MQBase {
 
 	// taken from connName
 	private String hostName;
 	
-	@Value("${ibm.mq.queuemanager}")
+	@Value("${ibm.mq.queueManager}")
 	private String queueManager;
 	
 	// hostname(port)
@@ -98,9 +96,6 @@ public class MQConnection {
 	@Value("${ibm.mq.useSSL}")
 	private boolean bUseSSL;
 	
-	@Value("${application.debug:false}")
-    private boolean _debug;
-	
 	@Value("${ibm.mq.security.truststore}")
 	private String truststore;
 	@Value("${ibm.mq.security.truststore-password}")
@@ -111,7 +106,7 @@ public class MQConnection {
 	private String keystorepass;
 	
     //MQ reset
-    @Value("${ibm.mq.event.delayInMilliSeconds}")
+    @Value("${ibm.mq.event.delayInMilliSeconds:10000}")
     private long resetIterations;
 
 	//@Autowired(required = false)
@@ -170,7 +165,6 @@ public class MQConnection {
     
 	// Constructor
 	private MQConnection() {
-		log.info("Loading existing metrics");
 	}
 	
 
@@ -190,29 +184,29 @@ public class MQConnection {
 				UpdateChannelMetrics();
 				
 			} else {
-				log.info("No MQ queue manager object");
+				if (this._debug) { log.error("No MQ queue manager object"); }
 				CreateQueueManagerConnection();
 				SetPCFParameters();
 
 			}
 			
 		} catch (PCFException p) {
-			log.info("PCFException " + p.getMessage());
+			log.error("PCFException " + p.getMessage());
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 			
 		} catch (MQException m) {
-			log.info("MQException " + m.getMessage());
+			log.error("MQException " + m.getMessage());
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
-			log.info("IOException " + i.getMessage());
+			log.error("IOException " + i.getMessage());
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 			
 		} catch (Exception e) {
-			log.info("Exception " + e.getMessage());
+			log.error("Exception " + e.getMessage());
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 		}
@@ -251,21 +245,21 @@ public class MQConnection {
 		 * ...... then the connection is used like OPTIONAL
 		 */
 		
-		if (this.userId != null) {
+		if (!StringUtils.isEmpty(this.userId)) {
 			env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
 		}
-		if (this.password != null) {
+		if (!StringUtils.isEmpty(this.password)) {
 			env.put(MQConstants.PASSWORD_PROPERTY, this.password);
 		}
 		env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 
 		if (this._debug) {
-			log.info("Host 		: " + this.hostName);
-			log.info("Channel 	: " + this.channel);
-			log.info("Port 		: " + this.port);
-			log.info("Queue Man : " + this.queueManager);
-			log.info("User 		: " + this.userId);
-			log.info("Password  : **********");
+			log.info("Host		: " + this.hostName);
+			log.info("Channel	: " + this.channel);
+			log.info("Port		: " + this.port);
+			log.info("Queue Man	: " + this.queueManager);
+			log.info("User		: " + this.userId);
+			log.info("Password	: **********");
 			if (this.bUseSSL) {
 				log.info("SSL is enabled ....");
 			}
@@ -273,14 +267,20 @@ public class MQConnection {
 		
 		// If SSL is enabled (default)
 		if (this.bUseSSL) {
-			System.setProperty("javax.net.ssl.trustStore", this.truststore);
-	        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
-	        System.setProperty("javax.net.ssl.trustStoreType","JKS");
-	        System.setProperty("javax.net.ssl.keyStore", this.keystore);
-	        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
-	        System.setProperty("javax.net.ssl.keyStoreType","JKS");
-	        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
-	        env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher); 
+			if (!StringUtils.isEmpty(this.truststore)) {
+				System.setProperty("javax.net.ssl.trustStore", this.truststore);
+		        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
+		        System.setProperty("javax.net.ssl.trustStoreType","JKS");
+		        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
+			}
+			if (!StringUtils.isEmpty(this.keystore)) {
+		        System.setProperty("javax.net.ssl.keyStore", this.keystore);
+		        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
+		        System.setProperty("javax.net.ssl.keyStoreType","JKS");
+			}
+			if (!StringUtils.isEmpty(this.cipher)) {
+				env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher); 
+			}
 		
 		} else {
 			if (this._debug) {
@@ -290,20 +290,23 @@ public class MQConnection {
 		
         //System.setProperty("javax.net.debug","all");
 		if (this._debug) {
-			log.info("TrustStore       : " + this.truststore);
-			log.info("TrustStore Pass  : ********");
-			log.info("KeyStore         : " + this.keystore);
-			log.info("KeyStore Pass    : ********");
-			log.info("Cipher Suite     : " + this.cipher);
+			if (!StringUtils.isEmpty(this.truststore)) {
+				log.info("TrustStore       : " + this.truststore);
+				log.info("TrustStore Pass  : ********");
+			}
+			if (!StringUtils.isEmpty(this.keystore)) {
+				log.info("KeyStore         : " + this.keystore);
+				log.info("KeyStore Pass    : ********");
+				log.info("Cipher Suite     : " + this.cipher);
+			}
 		}
 		
 		log.info("Attempting to connect to queue manager " + this.queueManager);
 		MQQueueManager queManager = new MQQueueManager(this.queueManager, env);
-		
 		log.info("Connection to queue manager established ");
+		
 		log.info("Creating PCFAgent ");
 		this.messageAgent = new PCFMessageAgent(queManager);
-		
 		log.info("PCF agent to  " + this.queueManager + " established.");
 
 	}
@@ -336,7 +339,7 @@ public class MQConnection {
 			
 		}
 
-		// dont allow to run as MQM
+		// if no use, for get it ...
 		if (this.userId == null) {
 			return;
 		}
@@ -358,9 +361,9 @@ public class MQConnection {
 	 */
 	private void QueueManagerIsNotRunning() {
 
-		this.pcfQueueManager.NotRunning();
-		this.pcfListener.NotRunning();
-		this.pcfChannel.NotRunning();
+		this.pcfQueueManager.NotRunning(this.queueManager);
+		this.pcfListener.ResetMetrics(0);
+		this.pcfChannel.ResetMetrics(0);
 		
 	}
 
@@ -554,7 +557,7 @@ public class MQConnection {
     	
     	try {
 	    	if (this.messageAgent != null) {
-	    		log.info("Closing agent ");
+	    		if (this._debug) { log.info("Closing PCF agent "); }
 	        	this.messageAgent.disconnect();
 	    	}
     	} catch (Exception e) {

@@ -1,15 +1,12 @@
 ibm:
   mq:
-    queueManager1: QMAP01
-    channel1: MQ.TLS.SVRCONN
-    connName1: localhost(1442)
-    queueManager: TSTQPD01
-    channel: MQ.MONITOR.SSL
-    connName: localhost(1414)
+    queueManager: QMAP01
+    channel: ADMIN.TLS.SVRCONN
+    connName: 169.254.9.188(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     useSSL: true
-    user: 
-    password: 
+    user:
+    password:
     objects:
       queues:
         include: "*"
@@ -22,13 +19,11 @@ ibm:
         exclude: SYSTEM.
         types:
           include: TCP
-          exclude: "*" 
-    event:
-      delayInMilliSeconds: 10000      
+          exclude: "*"
     security:
-      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      truststore: /config/qmap01jks.jks
       truststore-password: Passw0rd
-      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      keystore: /config/qmap01jks.jks
       keystore-password: Passw0rd
 management:
   endpoints:
@@ -44,7 +39,7 @@ info:
   app:
     name: MQ-Metrics
     description: IBM MQ Metrics
-    version: 1.0.0.3
+    version: 1.0.0.2
     java:
       version: 1.8.0.0
 server:

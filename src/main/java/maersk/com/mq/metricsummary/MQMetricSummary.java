@@ -3,11 +3,11 @@ package maersk.com.mq.metricsummary;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -16,30 +16,26 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 
 // https://www.oodlestechnologies.com/blogs/Simple-Steps-To-Read-JSON-file-and-save-it-to-database-in-spring-boot/
 
 @Component
-public class MQMetricSummary {
+public class MQMetricSummary extends MQBase {
 	
-	private static final String MQPREFIX = "mq:";
 	private static final int DAY_ONE = 1;
 	
-	@Value("${application.debug:false}")
-    private boolean _debug;
-	@Value("${application.save.metrics.filename:currentChannels.json}")
+	@Value("${application.save.metrics.filename:nofile.json}")
     private String metricsFileName;
 
     private Logger log = Logger.getLogger(this.getClass());
@@ -60,8 +56,14 @@ public class MQMetricSummary {
 		try {
 			LoadMetricsFromFile();
 			
+		} catch (NoSuchFileException e) {
+			log.info("File : " + this.metricsFileName + " does not exist, creating it.");
+		
 		} catch (IOException e) {
-			log.error("Error: " + e.getMessage());
+			log.error("IOException: " + e.getMessage());
+		
+		} catch (Exception e) {
+			log.error("Exception: " + e.getMessage());
 		}
 		
 	}
@@ -70,6 +72,15 @@ public class MQMetricSummary {
 	private void LoadMetricsFromFile() throws IOException {
 
 		if (this._debug) { log.info("Loading monthly metrics from file ... : " + this.metricsFileName); }
+		log.info("file: " + Paths.get(this.metricsFileName));
+		
+		Path pathToFile = Paths.get(this.metricsFileName);
+		File fileName = new File(this.metricsFileName);
+		if (!fileName.exists()) {
+			this.channels = new Channels();
+			this.channels.setQueueManagerName("");
+			this.channels.setCurrentDate(new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS").format(new Date()));
+		}
 		
 		byte[] mapData = Files.readAllBytes(Paths.get(this.metricsFileName));
 		
@@ -81,7 +92,7 @@ public class MQMetricSummary {
 		} catch (Exception e) {
 			log.error("creating initial cummulative metrics");
 		}
-		
+
 	}
 	
 	
@@ -251,8 +262,7 @@ public class MQMetricSummary {
 		
 		try {
 			
-			
-			log.info("Creating JSON file :" + fileName );
+			if (this._debug) { log.info("Creating JSON file :" + fileName ); }
 			ObjectMapper objectMapper = new ObjectMapper();
 			objectMapper.writeValue(new File(fileName),channels);
 			
@@ -265,17 +275,3 @@ public class MQMetricSummary {
 	
 }
 
-
-/*
-* {"qm":"QMAP01",
-*  "currentDate":"2019-07-18:15:29:00",
-*  "channel":[
-*     {"name":"channelOne",
-*      "0719":1234,
-*      "0819":5432},
-*     {"name":"channelTwo",
-*      "0719":0,
-*      "0819":123}
-*  ]
-* }
-*/

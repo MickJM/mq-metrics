@@ -10,11 +10,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.integration.support.management.MetricsCaptor.GaugeBuilder;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
@@ -24,36 +20,30 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import io.prometheus.client.Collector;
-import io.prometheus.client.CollectorRegistry;
-import io.prometheus.client.Gauge;
-import io.prometheus.client.Gauge.Builder;
-import maersk.com.mq.metricsummary.Channel;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
-public class pcfChannel {
+public class pcfChannel extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
+    private Logger log = Logger.getLogger(this.getClass());
+
 	private static final int SAVEMETRICS = 0;
 	
 	private String queueManager;
 
-	@Value("${application.debug:false}")
-    private boolean _debug;
 	@Value("${application.save.summary.stats:3}")
     private int saveSummaryStats;
+	@Value("${application.save.summary.required:false}")
+    private boolean summaryRequired;
 
 	@Value("${ibm.mq.objects.channels.exclude}")
     private String[] excludeChannels;
 	@Value("${ibm.mq.objects.channels.include}")
     private String[] includeChannels;
 	
-    private Logger log = Logger.getLogger(this.getClass());
 
     private PCFMessageAgent messageAgent;
     public void setMessageAgent(PCFMessageAgent agent) {
@@ -75,6 +65,7 @@ public class pcfChannel {
     private MQMetricSummary metricSummary;
     
     private int metricSummaryCount = 0;
+    
     //@Autowired
     //private MQMetricSummary metricSummary;
     //
@@ -88,35 +79,26 @@ public class pcfChannel {
     //
     
     public pcfChannel(MQMetricSummary metricSummary) {
-    	log.info("pcfChannel object");
-    
-		if (metricSummary != null) {
-	    	log.info("MetricSummary exists ....");
-	    	this.metricSummary = metricSummary;
-	    	
-		} else {
-	    	log.info("MetricSummary does not exist ....");
-			
-		}
-		
-    	//this.context.getBean(MQMetricSummary.class).LoadMetrics();
-		if (this.metricSummary != null) {
-	    	this.metricSummary.LoadMetrics();			
-		} else {
-	    	log.info("this.metricsSummary object has not been created !!");
-			
-		}
 
-		//Channel c = this.context.getBean(MQMetricSummary.class).GetChannelValue("channelOne");
-		//this.metricSummary.LoadMetrics();
-		//Channel c = this.metricSummary.GetChannelValue("channelOne");
-		
-		//log.info("ChannelOne: " + c.getName() + " " + c.getThismonth());
-		
-		if (this.metricSummary != null) {
-			log.info("NOT equal NULL");
-		}
+    	if (this.summaryRequired) {
+			if (metricSummary != null) {
+				if (this._debug) { log.info("MetricSummary exists object has been created ..."); }
+		    	this.metricSummary = metricSummary;
+		    	
+			} else {
+				if (this._debug) { log.info("MetricSummary does not exist ...."); }
+				
+			}
 			
+			if (this.metricSummary != null) {
+		    	this.metricSummary.LoadMetrics();	
+		    	
+			} else {
+				if (this._debug) { log.info("this.metricsSummary object has not been created !!"); }
+				
+			}
+    	}
+    	
     }
     
     /*
@@ -124,7 +106,7 @@ public class pcfChannel {
      */
 	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
 
-		ResetMetrics();
+		ResetMetrics(MQPCFConstants.PCF_INIT_VALUE);
 		
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
@@ -135,8 +117,8 @@ public class pcfChannel {
 
 		int[] pcfStatAttrs = { MQConstants.MQIACF_ALL };
 
-		int iChannelCounter = 0;
-		int iChannelSeq = 0;
+		int iChannelCounter = MQPCFConstants.BASE;
+		int iChannelSeq = MQPCFConstants.BASE;
 		
 		// for each return response, loop
 		for (PCFMessage pcfMsg : pcfResponse) {	
@@ -166,12 +148,12 @@ public class pcfChannel {
 		        PCFMessage[] pcfResp = null;
 				try {
 					pcfResp = this.messageAgent.send(pcfReq);
-					PCFMessage pcfStatus = pcfResp[0];
+					PCFMessage pcfStatus = pcfResp[MQPCFConstants.BASE];
 					//for (PCFMessage pcfMessage : pcfResp) {
 						
 					int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
 					String conn = pcfResp[0].getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
-
+					
 					AtomicInteger c = channelStatusMap.get(channelName);
 					if (c == null) {
 						channelStatusMap.put(channelName, Metrics.gauge(new StringBuilder()
@@ -225,8 +207,8 @@ public class pcfChannel {
 				}
 
 				long msgsOverChannels = 0l;
-				int bytesReceviedOverChannels = 0;
-				int bytesSentOverChannels = 0;
+				int bytesReceviedOverChannels = MQPCFConstants.BASE;
+				int bytesSentOverChannels = MQPCFConstants.BASE;
 
 				try {
 					
@@ -272,17 +254,20 @@ public class pcfChannel {
 										"channelName", channelName,
 										"cluster", channelCluster
 										)
-								, new AtomicLong(0)));
+								, new AtomicLong(MQPCFConstants.PCF_INIT_VALUE)));
 					} else {
-						r.set(0);
+						r.set(MQPCFConstants.PCF_INIT_VALUE);
 					}
 
-					if (this.metricSummary != null) {
-						this.metricSummary.UpdateCounts(channelName
-								, channelType
-								, this.queueManager
-								, channelCluster
-								, 0);
+					// If the metric summary is required, then updates the counts
+					if (this.summaryRequired) {
+						if (this.metricSummary != null) {
+							this.metricSummary.UpdateCounts(channelName
+									, channelType
+									, this.queueManager
+									, channelCluster
+									, MQPCFConstants.PCF_INIT_VALUE);
+						}
 					}
 				}
 				
@@ -320,9 +305,9 @@ public class pcfChannel {
 										"channelName", channelName,
 										"cluster", channelCluster
 										)
-								, new AtomicInteger(0)));
+								, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 					} else {
-						r.set(0);
+						r.set(MQPCFConstants.PCF_INIT_VALUE);
 					}
 					
 				}
@@ -360,23 +345,25 @@ public class pcfChannel {
 										"channelName", channelName,
 										"cluster", channelCluster
 										)
-								, new AtomicInteger(0)));
+								, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
 					} else {
-						r.set(0);
+						r.set(MQPCFConstants.PCF_INIT_VALUE);
 					}
 					
 				}
 			}
 		}
 		
-		this.metricSummaryCount++;
-		log.info("SummaryCount = " + this.metricSummaryCount);
-		
-		if ((this.metricSummaryCount % this.saveSummaryStats) == SAVEMETRICS) {
-			this.metricSummaryCount = 0;
+		if (this.summaryRequired) {
+			this.metricSummaryCount++;
 			log.info("SummaryCount = " + this.metricSummaryCount);
-			this.metricSummary.SaveMetrics();
-			this.metricSummary.DoWeNeedToRollOver();
+			
+			if ((this.metricSummaryCount % this.saveSummaryStats) == SAVEMETRICS) {
+				this.metricSummaryCount = MQPCFConstants.BASE;
+				log.info("SummaryCount = " + this.metricSummaryCount);
+				this.metricSummary.SaveMetrics();
+				this.metricSummary.DoWeNeedToRollOver();
+			}
 		}
 		
 	}
@@ -474,12 +461,12 @@ public class pcfChannel {
 	}
 	
 	// Not running
-	public void NotRunning() {
-		SetMetricsValue(0);
-	}
+	//public void NotRunning() {
+	//	SetMetricsValue(0);
+	//}
 
-	private void ResetMetrics() {
-		SetMetricsValue(-1);
+	public void ResetMetrics(int val) {
+		SetMetricsValue(val);
 		
 	}
 	
