@@ -1,5 +1,13 @@
 package maersk.com.mq.metrics.mqmetrics;
 
+/*
+ * Connect to MQ Queue Manager
+ * 
+ * 02/09/2019 IBM advised that that the MQ connection was not been dropped.
+ *            Amended to drop connection if there was an error
+ *            
+ */
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -44,6 +52,7 @@ import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -109,9 +118,10 @@ public class MQConnection extends MQBase {
     @Value("${ibm.mq.event.delayInMilliSeconds:10000}")
     private long resetIterations;
 
-	//@Autowired(required = false)
+    private MQQueueManager queManager = null;
     private PCFMessageAgent messageAgent = null;
-
+    private PCFAgent agent = null;
+    
     private Map<String,Map<String,AtomicInteger>>collectionqueueHandleMaps 
 			= new HashMap<String,Map<String,AtomicInteger>>();
     
@@ -128,11 +138,7 @@ public class MQConnection extends MQBase {
     @Autowired
     public pcfChannel pcfChannel;
     
-    //@Autowired
-    public MQMetricSummary metricSummary;
-    
-    //@Autowired
-    //public CollectorRegistry registry;
+    public MQMetricSummary metricSummary;    
 
     @Bean
     public pcfQueueManager QueueManager() {
@@ -192,23 +198,24 @@ public class MQConnection extends MQBase {
 			
 		} catch (PCFException p) {
 			log.error("PCFException " + p.getMessage());
+			CloseQMConnection();
 			QueueManagerIsNotRunning();
-			this.messageAgent = null;
 			
 		} catch (MQException m) {
 			log.error("MQException " + m.getMessage());
+			CloseQMConnection();
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
 			log.error("IOException " + i.getMessage());
+			CloseQMConnection();
 			QueueManagerIsNotRunning();
-			this.messageAgent = null;
 			
 		} catch (Exception e) {
 			log.error("Exception " + e.getMessage());
+			CloseQMConnection();
 			QueueManagerIsNotRunning();
-			this.messageAgent = null;
 		}
     }
     
@@ -302,13 +309,22 @@ public class MQConnection extends MQBase {
 		}
 		
 		log.info("Attempting to connect to queue manager " + this.queueManager);
-		MQQueueManager queManager = new MQQueueManager(this.queueManager, env);
-		log.info("Connection to queue manager established ");
+		if (this.queManager == null) {
+			this.queManager = new MQQueueManager(this.queueManager, env);
+			log.info("Connection to queue manager established ");
+			
+		} else {
+			log.info("Connection to queue manager is already established ");
+		}
 		
 		log.info("Creating PCFAgent ");
-		this.messageAgent = new PCFMessageAgent(queManager);
-		log.info("PCF agent to  " + this.queueManager + " established.");
-
+		if (this.messageAgent == null) {
+			this.messageAgent = new PCFMessageAgent(queManager);
+			log.info("PCF agent to  " + this.queueManager + " established.");
+		} else {
+			log.info("PCFAgent is already established ");
+			
+		}
 	}
 
 	/*
@@ -339,6 +355,14 @@ public class MQConnection extends MQBase {
 			
 		}
 
+		//
+		if (this.userId.equals("")) {
+			if (this.bUseSSL == false) {
+				log.error("Unable to connect to queue manager, credentials are missing and certificates is false");
+				System.exit(1);
+			}
+		}
+
 		// if no use, for get it ...
 		if (this.userId == null) {
 			return;
@@ -362,8 +386,8 @@ public class MQConnection extends MQBase {
 	private void QueueManagerIsNotRunning() {
 
 		this.pcfQueueManager.NotRunning(this.queueManager);
-		this.pcfListener.ResetMetrics(0);
-		this.pcfChannel.ResetMetrics(0);
+		this.pcfListener.resetMetric();
+		this.pcfChannel.resetMetric();
 		
 	}
 
@@ -554,6 +578,15 @@ public class MQConnection extends MQBase {
 	 */
     @PreDestroy
     public void CloseQMConnection() {
+
+    	try {
+    		if (this.queManager.isConnected()) {
+	    		if (this._debug) { log.info("Closing MQ Connection "); }
+    			this.queManager.disconnect();
+    		}
+    	} catch (Exception e) {
+    		// do nothing
+    	}
     	
     	try {
 	    	if (this.messageAgent != null) {
@@ -563,6 +596,10 @@ public class MQConnection extends MQBase {
     	} catch (Exception e) {
     		// do nothing
     	}
+    	
+    	this.queManager = null;
+		this.messageAgent = null;
+
     }
 	
         

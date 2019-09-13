@@ -35,6 +35,8 @@ public class MQMetricSummary extends MQBase {
 	
 	private static final int DAY_ONE = 1;
 	
+	protected static final String lookupChlCounts = MQPREFIX + "cummulativeChannelCounts";
+	
 	@Value("${application.save.metrics.filename:nofile.json}")
     private String metricsFileName;
 
@@ -99,6 +101,8 @@ public class MQMetricSummary extends MQBase {
 	// Create initial metrics
 	private void CreateMetrics() {
 
+		resetMetric();
+		
 		String qmName = this.channels.getQueueManagerName();
 		String date = this.channels.getCurrentDate();
 		
@@ -135,6 +139,14 @@ public class MQMetricSummary extends MQBase {
 		mcd.setClusterName(clusterName);
 		mcd.setQueueManagerName(qm);
 		
+		meterRegistry.gauge(lookupChlCounts, 
+				Tags.of("queueManagerName", qm,
+						"channelType", channelType,
+						"channelName", channelName,
+						"cluster", clusterName)
+				,count);
+
+		/*
 		AtomicLong c = FindValue(mcd);
 		AtomicLong init = loadedCounts.get(channelName);
 		if (init == null) {
@@ -157,7 +169,9 @@ public class MQMetricSummary extends MQBase {
 			long c1 = count + init.get();
 			c.set(c1);
 			
-		}			
+		}
+		*/
+		
 	}
 
 	// Do we need to roll over this months metrics 
@@ -223,6 +237,11 @@ public class MQMetricSummary extends MQBase {
 		
 	}
 	
+	public void resetMetric() {
+		DeleteMetricEntry(lookupChlCounts);
+
+	}
+
 	public void SaveMetrics() {
 		
 		if (this._debug) { log.info("Saving metric summary to disk ..."); }

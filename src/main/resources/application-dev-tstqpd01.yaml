@@ -12,7 +12,7 @@ ibm:
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     useSSL: false
     user: MQMon02
-    password: Passw0rd
+    password: 
     objects:
       queues:
         include: "*"

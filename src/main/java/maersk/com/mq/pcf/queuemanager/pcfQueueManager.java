@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.ibm.mq.MQException;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
@@ -33,14 +34,13 @@ public class pcfQueueManager extends MQBase {
 
     @Value("${ibm.mq.event.delayInMilliSeconds}")
 	private long resetIterations;
-	//public void setResetIterations(long value) {
-	//	this.resetIterations = value;
-	//}	
 
     private PCFMessageAgent messageAgent = null;
-
     private Map<String,AtomicLong>mqReset = new HashMap<String, AtomicLong>();
 
+	protected static final String cmdLookupStatus = MQPREFIX + "commandServerStatus";
+	protected static final String lookupStatus = MQPREFIX + "queueManagerStatus";
+	
     //Queue Manager / IIB maps
     private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
 
@@ -148,6 +148,13 @@ public class pcfQueueManager extends MQBase {
 		
 		// queue manager status
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
+		resetMetric(lookupStatus);
+		meterRegistry.gauge(lookupStatus, 
+				Tags.of("queueManagerName", this.queueManager,
+						"cluster",getQueueManagerClusterName())
+				,qmStatus);
+
+		/*
 		AtomicInteger q = qmStatusMap.get(this.queueManager);
 		if (q == null) {
 			qmStatusMap.put(this.queueManager, 
@@ -161,9 +168,16 @@ public class pcfQueueManager extends MQBase {
 		} else {
 			q.set(qmStatus);
 		}        
-	
+		*/
+		
 		// command server status
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
+		resetMetric(cmdLookupStatus);
+		meterRegistry.gauge(cmdLookupStatus, 
+				Tags.of("queueManagerName", this.queueManager)
+				,cmdStatus);
+		
+		/*
 		AtomicInteger cmd = cmdStatusMap.get(this.queueManager);
 		if (cmd == null) {
 			cmdStatusMap.put(this.queueManager, 
@@ -175,7 +189,8 @@ public class pcfQueueManager extends MQBase {
 			new AtomicInteger(cmdStatus)));
 		} else {
 			cmd.set(cmdStatus);
-		}        	
+		} 
+		*/       	
 	}
 	
 	/*
@@ -188,6 +203,13 @@ public class pcfQueueManager extends MQBase {
 		}
 		
 		// Set the queue manager status to indicate that its not running
+		resetMetric(lookupStatus);
+		meterRegistry.gauge(lookupStatus, 
+				Tags.of("queueManagerName", this.queueManager,
+						"cluster",getQueueManagerClusterName())
+				,MQPCFConstants.PCF_INIT_VALUE);
+
+		/*
 		AtomicInteger q = qmStatusMap.get(qm);
 		if (q == null) {
 			qmStatusMap.put(this.queueManager, 
@@ -198,7 +220,13 @@ public class pcfQueueManager extends MQBase {
 		} else {
 			q.set(MQPCFConstants.PCF_INIT_VALUE);
 		}        
-		
+		*/
 	}
+	
+	private void resetMetric(String val) {
+		DeleteMetricEntry(val);
+
+	}
+
 	
 }

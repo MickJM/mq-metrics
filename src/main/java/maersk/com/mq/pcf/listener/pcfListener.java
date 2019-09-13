@@ -58,6 +58,8 @@ public class pcfListener extends MQBase {
     //Listener status maps
     private Map<String,AtomicInteger>listenerStatusMap = new HashMap<String, AtomicInteger>();
     
+	protected static final String lookupListener = MQPREFIX + "listenerStatus";
+
     // Listeners ...
 	@Value("${ibm.mq.objects.listeners.exclude}")
     private String[] excludeListeners;
@@ -80,105 +82,158 @@ public class pcfListener extends MQBase {
      */
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 
-		ResetMetrics(MQPCFConstants.PCF_INIT_VALUE);
+		if (this._debug) { log.info("pcfListener: inquire listener request"); }
+
+		resetMetric();
 		
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER);
 		pcfRequest.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
 		pcfRequest.addParameter(MQConstants.MQIACF_LISTENER_ATTRS, pcfParmAttrs);
-        PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);
+		
+		PCFMessage[] pcfResponse = null;
+		try {
+			pcfResponse = this.messageAgent.send(pcfRequest);
+
+		} catch (Exception e) {
+			if (this._debug) { log.warn("pcfListener: no response returned - " + e.getMessage()); }
+			
+		}
+		if (this._debug) { log.info("pcfListener: inquire listener response"); }
         
         int[] pcfStatAttrs = { 	MQConstants.MQIACF_ALL };
 		// For each response back, loop to process 
-		for (PCFMessage pcfMsg : pcfResponse) {	
-			int portNumber = MQPCFConstants.BASE;
-			int type = MQPCFConstants.NOTSET;
-			String listenerName = 
-					pcfMsg.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME).trim(); 
-			int listType = 
-					pcfMsg.getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
-			String typeName = typeList.get(listType).trim();			
-			if (checkListenNames(listenerName.trim())) {
-				
-				// Correct listener type ? Only interested in TCP
-				if (checkType(typeName)) {
-					PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER_STATUS);
-					pcfReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, listenerName);
-					pcfReq.addParameter(MQConstants.MQIACF_LISTENER_STATUS_ATTRS, pcfStatAttrs);
+		
+        try {
+	        for (PCFMessage pcfMsg : pcfResponse) {	
+				int portNumber = MQPCFConstants.BASE;
+				int type = MQPCFConstants.NOTSET;
+				String listenerName = 
+						pcfMsg.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME).trim(); 
+				int listType = 
+						pcfMsg.getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
+				String typeName = typeList.get(listType).trim();			
+				if (checkListenNames(listenerName.trim())) {
+					
+					// Correct listener type ? Only interested in TCP
+					if (checkType(typeName)) {
+						if (this._debug) { log.info("pcfListener: valid type"); }
 	
-			        PCFMessage[] pcfResp = null;
-					try {			
-						pcfResp = this.messageAgent.send(pcfReq);
-						int listenerStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS);					
-						portNumber = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_PORT);
-						type = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
-						
-						AtomicInteger l = listenerStatusMap.get(listenerName);
-						if (l == null) {
-							listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("listenerStatus").toString(), 
+						PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER_STATUS);
+						pcfReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, listenerName);
+						pcfReq.addParameter(MQConstants.MQIACF_LISTENER_STATUS_ATTRS, pcfStatAttrs);
+		
+				        PCFMessage[] pcfResp = null;
+						try {			
+							pcfResp = this.messageAgent.send(pcfReq);
+							int listenerStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS);					
+							portNumber = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_PORT);
+							type = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
+							meterRegistry.gauge(lookupListener, 
 									Tags.of("queueManagerName", this.queueManager,
 											"listenerName", listenerName,
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
-									, new AtomicInteger(listenerStatus)));
-						} else {
-							l.set(listenerStatus);
-						}
-					} catch (PCFException pcfe) {
-						if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
-							
-							AtomicInteger l = listenerStatusMap.get(listenerName);
-							if (l == null) {
-								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("listenerStatus").toString(), 
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type",Integer.toString(listType),
-												"port", Integer.toString(portNumber))
-										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-							} else {
-								l.set(MQPCFConstants.PCF_INIT_VALUE);
-							}
-						}
-						if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {
-							
-							AtomicInteger l = listenerStatusMap.get(listenerName);
-							if (l == null) {
-								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("listenerStatus").toString(), 
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type",Integer.toString(listType),
-												"port", Integer.toString(portNumber))
-										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-							} else {
-								l.set(MQPCFConstants.PCF_INIT_VALUE);
-							}
-						}
+									,listenerStatus);
 
-						
-					} catch (Exception e) {
-						AtomicInteger l = listenerStatusMap.get(listenerName);
-						if (l == null) {
-							listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("listenerStatus").toString(),
+							/*
+							AtomicInteger l = listenerStatusMap.get(listenerName);
+							if (l == null) {
+								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
+										.append(MQPREFIX)
+										.append("listenerStatus").toString(), 
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber))
+										, new AtomicInteger(listenerStatus)));
+							} else {
+								l.set(listenerStatus);
+							}
+							*/
+							
+						} catch (PCFException pcfe) {
+							if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
+								meterRegistry.gauge(lookupListener, 
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber))
+										,MQPCFConstants.PCF_INIT_VALUE);
+								
+								/*
+								AtomicInteger l = listenerStatusMap.get(listenerName);
+								if (l == null) {
+									listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
+											.append(MQPREFIX)
+											.append("listenerStatus").toString(), 
+											Tags.of("queueManagerName", this.queueManager,
+													"listenerName", listenerName,
+													"type",Integer.toString(listType),
+													"port", Integer.toString(portNumber))
+											, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
+								} else {
+									l.set(MQPCFConstants.PCF_INIT_VALUE);
+								}
+								*/
+							}
+							if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {								
+								meterRegistry.gauge(lookupListener, 
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber))
+										,MQPCFConstants.PCF_INIT_VALUE);
+								
+								/*
+								AtomicInteger l = listenerStatusMap.get(listenerName);
+								if (l == null) {
+									listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
+											.append(MQPREFIX)
+											.append("listenerStatus").toString(), 
+											Tags.of("queueManagerName", this.queueManager,
+													"listenerName", listenerName,
+													"type",Integer.toString(listType),
+													"port", Integer.toString(portNumber))
+											, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
+								} else {
+									l.set(MQPCFConstants.PCF_INIT_VALUE);
+								}
+								*/
+							}
+	
+							
+						} catch (Exception e) {
+							meterRegistry.gauge(lookupListener, 
 									Tags.of("queueManagerName", this.queueManager,
 											"listenerName", listenerName,
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
-									, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-						} else {
-							l.set(MQPCFConstants.PCF_INIT_VALUE);
-						}
-					}				
+									,MQPCFConstants.PCF_INIT_VALUE);
+
+							/*
+							AtomicInteger l = listenerStatusMap.get(listenerName);
+							if (l == null) {
+								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
+										.append(MQPREFIX)
+										.append("listenerStatus").toString(),
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber))
+										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
+							} else {
+								l.set(MQPCFConstants.PCF_INIT_VALUE);
+							}
+							*/
+						}				
+					}
 				}
-			}
-		}		
+	        }
+		} catch (Exception e) {
+			if (this._debug) { log.warn("pcfListener: unable to get listener metrcis " + e.getMessage()); }
+			
+		}
 	}
 	
 	/*
@@ -248,14 +303,15 @@ public class pcfListener extends MQBase {
 	//	SetMetricsValue(0);
 	//}
 
-	public void ResetMetrics(int val) {
-		SetMetricsValue(val);
-		
+	public void resetMetric() {
+		DeleteMetricEntry(lookupListener);
+
 	}
-	
+
 	// If the queue manager is not running, set any listeners state not running
 	public void SetMetricsValue(int val) {
 
+		
 		// For each listener, set the status to indicate its not running, as the ...
 		// ... queue manager is not running
 		Iterator<Entry<String, AtomicInteger>> listListener = this.listenerStatusMap.entrySet().iterator();

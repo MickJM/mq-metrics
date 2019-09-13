@@ -1,14 +1,16 @@
+application:
+  debug: true
 ibm:
   mq:
     queueManager1: QMAP01
     channel1: MQ.TLS.SVRCONN
     connName1: localhost(1442)
-    queueManager: TSTQPD01
-    channel: MQ.MONITOR.SSL
-    connName: localhost(1414)
+    queueManager: QMAP01
+    channel: MQ.MONITOR.PCF
+    connName: localhost(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
-    useSSL: true
-    user: 
+    useSSL: false
+    user: MQMon01
     password: 
     objects:
       queues:
