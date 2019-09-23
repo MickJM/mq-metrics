@@ -1,5 +1,13 @@
 package maersk.com.mq.pcf.listener;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Get listener details
+ * 
+ */
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -135,22 +143,6 @@ public class pcfListener extends MQBase {
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
 									,listenerStatus);
-
-							/*
-							AtomicInteger l = listenerStatusMap.get(listenerName);
-							if (l == null) {
-								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("listenerStatus").toString(), 
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type", Integer.toString(type),
-												"port", Integer.toString(portNumber))
-										, new AtomicInteger(listenerStatus)));
-							} else {
-								l.set(listenerStatus);
-							}
-							*/
 							
 						} catch (PCFException pcfe) {
 							if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
@@ -161,21 +153,6 @@ public class pcfListener extends MQBase {
 												"port", Integer.toString(portNumber))
 										,MQPCFConstants.PCF_INIT_VALUE);
 								
-								/*
-								AtomicInteger l = listenerStatusMap.get(listenerName);
-								if (l == null) {
-									listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-											.append(MQPREFIX)
-											.append("listenerStatus").toString(), 
-											Tags.of("queueManagerName", this.queueManager,
-													"listenerName", listenerName,
-													"type",Integer.toString(listType),
-													"port", Integer.toString(portNumber))
-											, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-								} else {
-									l.set(MQPCFConstants.PCF_INIT_VALUE);
-								}
-								*/
 							}
 							if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {								
 								meterRegistry.gauge(lookupListener, 
@@ -185,21 +162,6 @@ public class pcfListener extends MQBase {
 												"port", Integer.toString(portNumber))
 										,MQPCFConstants.PCF_INIT_VALUE);
 								
-								/*
-								AtomicInteger l = listenerStatusMap.get(listenerName);
-								if (l == null) {
-									listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-											.append(MQPREFIX)
-											.append("listenerStatus").toString(), 
-											Tags.of("queueManagerName", this.queueManager,
-													"listenerName", listenerName,
-													"type",Integer.toString(listType),
-													"port", Integer.toString(portNumber))
-											, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-								} else {
-									l.set(MQPCFConstants.PCF_INIT_VALUE);
-								}
-								*/
 							}
 	
 							
@@ -211,21 +173,6 @@ public class pcfListener extends MQBase {
 											"port", Integer.toString(portNumber))
 									,MQPCFConstants.PCF_INIT_VALUE);
 
-							/*
-							AtomicInteger l = listenerStatusMap.get(listenerName);
-							if (l == null) {
-								listenerStatusMap.put(listenerName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("listenerStatus").toString(),
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type", Integer.toString(type),
-												"port", Integer.toString(portNumber))
-										, new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE)));
-							} else {
-								l.set(MQPCFConstants.PCF_INIT_VALUE);
-							}
-							*/
 						}				
 					}
 				}
@@ -297,36 +244,10 @@ public class pcfListener extends MQBase {
 
 	}
 
-	
-	// Not running
-	//public void NotRunning() {
-	//	SetMetricsValue(0);
-	//}
 
 	public void resetMetric() {
 		DeleteMetricEntry(lookupListener);
 
-	}
-
-	// If the queue manager is not running, set any listeners state not running
-	public void SetMetricsValue(int val) {
-
-		
-		// For each listener, set the status to indicate its not running, as the ...
-		// ... queue manager is not running
-		Iterator<Entry<String, AtomicInteger>> listListener = this.listenerStatusMap.entrySet().iterator();
-		while (listListener.hasNext()) {
-	        Map.Entry pair = (Map.Entry)listListener.next();
-	        String key = (String) pair.getKey();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        }
-		}
-		
-	}
+	}	
 	
 }

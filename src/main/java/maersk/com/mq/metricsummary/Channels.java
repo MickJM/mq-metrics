@@ -1,23 +1,15 @@
 package maersk.com.mq.metricsummary;
 
-import java.util.List;
-
-//https://www.journaldev.com/2324/jackson-json-java-parser-api-example-tutorial
-
 /*
- * {"queueManagerName":"QMAP01",
- *  "currentDate":"2019-07-18:15:29:00",
- *  "channel":[
- *     {"name":"channelOne",
- *      "lastMonth":1234.00,
- *      "thisMonth":5432.00},
- *     {"name":"channelTwo",
- *      "lastMonth":0.00,
- *      "thismonth":123.00}
- *  ]
- * }
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Channel objects for saving metrics
  * 
  */
+
+import java.util.List;
+
 public class Channels {
 
 	private String queueManagerName;

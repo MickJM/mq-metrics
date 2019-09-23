@@ -1,11 +1,11 @@
 package maersk.com.mq.metrics.mqmetrics;
 
 /*
- * Connect to MQ Queue Manager
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Connect to a queue manager
  * 
- * 02/09/2019 IBM advised that that the MQ connection was not been dropped.
- *            Amended to drop connection if there was an error
- *            
  */
 
 import java.io.File;
@@ -69,19 +69,15 @@ import maersk.com.mq.pcf.queue.pcfQueue;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
 
-/***
- * 
- * @author Maersk
- *
- * Main class to connect to a queue manager
- * 
- */
 @Component
 public class MQConnection extends MQBase {
 
 	// taken from connName
 	private String hostName;
-	
+
+	@Value("${ibm.mq.multiInstance:false}")
+	private Boolean multiInstance;
+
 	@Value("${ibm.mq.queueManager}")
 	private String queueManager;
 	
@@ -167,8 +163,6 @@ public class MQConnection extends MQBase {
     	return new pcfChannel(this.metricSummary);
     }
 
-
-    
 	// Constructor
 	private MQConnection() {
 	}
@@ -197,23 +191,31 @@ public class MQConnection extends MQBase {
 			}
 			
 		} catch (PCFException p) {
-			log.error("PCFException " + p.getMessage());
+			if (!this.multiInstance) {
+				log.error("PCFException " + p.getMessage());
+			}
 			CloseQMConnection();
 			QueueManagerIsNotRunning();
 			
 		} catch (MQException m) {
-			log.error("MQException " + m.getMessage());
+			if (!this.multiInstance) {
+				log.error("MQException " + m.getMessage());
+			}
 			CloseQMConnection();
 			QueueManagerIsNotRunning();
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
-			log.error("IOException " + i.getMessage());
+			if (!this.multiInstance) {
+				log.error("IOException " + i.getMessage());
+			}
 			CloseQMConnection();
 			QueueManagerIsNotRunning();
 			
 		} catch (Exception e) {
-			log.error("Exception " + e.getMessage());
+			if (!this.multiInstance) {
+				log.error("Exception " + e.getMessage());
+			}
 			CloseQMConnection();
 			QueueManagerIsNotRunning();
 		}
@@ -221,14 +223,14 @@ public class MQConnection extends MQBase {
     
 	// Set the MQ Objects parameters
 	private void SetPCFParameters() {
-		this.pcfQueueManager.setMessageAgent(this.messageAgent);
+		this.pcfQueueManager.setMessageAgent(this.messageAgent, this.multiInstance);
 		this.pcfListener.setMessageAgent(this.messageAgent);
 		this.pcfQueue.setMessageAgent(this.messageAgent);
 		this.pcfChannel.setMessageAgent(this.messageAgent);
 		
 	}
 
-	/**
+	/*
 	 * Create an MQ connection to the queue manager
 	 * ... once connected, create a messageAgent for PCF commands
 	 * 
@@ -260,6 +262,10 @@ public class MQConnection extends MQBase {
 		}
 		env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 
+		if (this.multiInstance) {
+			log.info("MQ Metrics is running in multiInstance mode");
+		}
+		
 		if (this._debug) {
 			log.info("Host		: " + this.hostName);
 			log.info("Channel	: " + this.channel);
@@ -385,10 +391,18 @@ public class MQConnection extends MQBase {
 	 */
 	private void QueueManagerIsNotRunning() {
 
-		this.pcfQueueManager.NotRunning(this.queueManager);
-		this.pcfListener.resetMetric();
-		this.pcfChannel.resetMetric();
-		
+		if (this.pcfQueueManager != null) {
+			this.pcfQueueManager.NotRunning(this.queueManager, this.multiInstance);
+		}
+		if (this.pcfListener != null) {
+			this.pcfListener.resetMetric();
+		}
+		if (this.pcfChannel != null) {
+			this.pcfChannel.resetMetric();			
+		}
+		if (this.pcfQueue != null) {
+			this.pcfQueue.resetMetric();
+		}
 	}
 
 	/*
@@ -458,120 +472,6 @@ public class MQConnection extends MQBase {
 		this.pcfQueue.UpdateQueueMetrics();
 				
 	}
-
-	/**
-	 * **** NOT YET USED ****
-	 * When the queue has either openInputCounts or openOutputCounts, then get the
-	 *    connection handles that are connected to the queue
-	 * @param queueName
-	 * @throws MQException
-	 * @throws IOException
-	 * @throws MQDataException 
-	 */
-	private void ProcessQueueHandlers(String queueName ) throws MQException, IOException, MQDataException {
-		
-		PCFMessage pcfInqHandle = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
-		pcfInqHandle.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-		pcfInqHandle.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_HANDLE);					
-		PCFMessage[] pcfResHandle = this.messageAgent.send(pcfInqHandle);
-
-		int iCount = 0;
-		for (PCFMessage pcfMsg : pcfResHandle) {
-			int seqNo = pcfMsg.getMsgSeqNumber();
-			StringBuilder sb = new StringBuilder()
-					.append(queueName.trim())
-					.append(seqNo);
-						
-			Map<String, AtomicInteger>flowMap 
-				= collectionqueueHandleMaps.get(sb.toString());
-
-			if (flowMap == null) {
-				Map<String, AtomicInteger>stats 
-						= new HashMap<String,AtomicInteger>();
-				collectionqueueHandleMaps.put(sb.toString(), stats);
-			}
-			
-			int value = pcfMsg.getIntParameterValue(MQConstants.MQIACF_HANDLE_STATE);
-			String conn = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
-			String appName = 
-					pcfMsg.getStringParameterValue(MQConstants.MQCACF_APPL_TAG).trim();
-			
-
-			Map<String,AtomicInteger>queHand = collectionqueueHandleMaps
-						.get(sb.toString());
-			AtomicInteger i = queHand.get(sb.toString());
-			if (i == null) {
-				queHand.put(sb.toString(), Metrics.gauge(new StringBuilder()
-						.append(MQPREFIX)
-						.append("queueHandles").toString(), 
-						Tags.of("queueManagerName", this.queueManager,
-								"queueName", queueName,
-								"connection",conn,
-								"appName",appName,
-								"sequence", Integer.toString(seqNo)
-								),
-						new AtomicInteger(value)));
-			} else {
-				i.set(value);
-			}
-			iCount++;
-			
-		}
-		
-		//for (int iHCount = iCount; iHCount < 10; iHCount++) {
-		iCount++;
-		StringBuilder sb = new StringBuilder()
-				.append(queueName.trim())
-				.append(iCount);
-
-		Map<String, AtomicInteger>flowMap = collectionqueueHandleMaps.get(sb.toString());
-
-		if (flowMap != null) {
-			Map<String,AtomicInteger>queHand = collectionqueueHandleMaps.get(sb.toString());
-			queHand.remove(sb.toString());
-			collectionqueueHandleMaps.remove(sb.toString());
-		}
-			
-		// Get MQIACF_HANDLE_STATE
-		// https://www.ibm.com/support/knowledgecenter/en/SSFKSJ_9.0.0/com.ibm.mq.ref.adm.doc/q129080_.html
-		
-	}
-	
-	
-	
-	// Not running ...
-	public void ClearPrometheusEntries() {
-		
-		//CollectorRegistry reg = new CollectorRegistry();
-	
-		/*
-		Enumeration<MetricFamilySamples> coll = registry.metricFamilySamples();
-		while (coll.hasMoreElements()) {
-			MetricFamilySamples metric = coll.nextElement();
-			//Collector col = (Collector) coll;
-			log.info("metric: " + metric.name);
-			if (metric.name.startsWith("mq:")) {
-		//		registry.unregister(coll);
-	
-			}
-		};
-		*/
-		
-		/*
-		Iterator<MetricFamilySamples> coll = registry.metricFamilySamples().asIterator();
-		while (coll.hasNext()) {
-			MetricFamilySamples metric = coll.next();
-			//Collector col = (Collector) coll;
-			log.info("metric: " + metric.name);
-			if (metric.name.startsWith("mq:")) {
-				coll.remove();
-	
-			}
-		};
-		*/
-		
-	}
-
 	
 	/*
 	 * Disconnect cleanly from the queue manager

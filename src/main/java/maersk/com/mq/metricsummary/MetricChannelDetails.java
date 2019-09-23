@@ -1,5 +1,13 @@
 package maersk.com.mq.metricsummary;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Metric Channel details
+ * 
+ */
+
 public class MetricChannelDetails {
 
 	private String ChannelName;

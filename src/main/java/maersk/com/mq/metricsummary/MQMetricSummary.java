@@ -1,5 +1,13 @@
 package maersk.com.mq.metricsummary;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Metrics Summary
+ * 
+ */
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,8 +35,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
-
-// https://www.oodlestechnologies.com/blogs/Simple-Steps-To-Read-JSON-file-and-save-it-to-database-in-spring-boot/
 
 @Component
 public class MQMetricSummary extends MQBase {
@@ -146,31 +152,6 @@ public class MQMetricSummary extends MQBase {
 						"cluster", clusterName)
 				,count);
 
-		/*
-		AtomicLong c = FindValue(mcd);
-		AtomicLong init = loadedCounts.get(channelName);
-		if (init == null) {
-			init = new AtomicLong(0);
-		}
-		
-		if (c == null) {
-			cummChannelCounts.put(mcd, Metrics.gauge(new StringBuilder()
-					.append(MQPREFIX)
-					.append("cummulativeChannelCounts").toString(), 
-					Tags.of("queueManagerName", qm,
-							"channelType", channelType,
-							"channelName", channelName,
-							"cluster", clusterName
-							)
-					, new AtomicLong(count)));
-			
-		} else {
-			
-			long c1 = count + init.get();
-			c.set(c1);
-			
-		}
-		*/
 		
 	}
 
@@ -216,27 +197,7 @@ public class MQMetricSummary extends MQBase {
 		
 	}
 	
-	
-	// Find the value to update
-	//   currently only checking on channelName
-	//
-	private AtomicLong FindValue(MetricChannelDetails mcd) {
-	
-		Iterator<Entry<MetricChannelDetails, AtomicLong>> listChannels = this.cummChannelCounts.entrySet().iterator();
-		while (listChannels.hasNext()) {
-
-	        Map.Entry pair = (Map.Entry)listChannels.next();
-	        MetricChannelDetails key = (MetricChannelDetails) pair.getKey();
-			
-	        if (key.getChannelName().equals(mcd.getChannelName())) {
-	        	AtomicLong i = (AtomicLong) pair.getValue();
-	        	return i;
-	        }
-		}
-		return null;
 		
-	}
-	
 	public void resetMetric() {
 		DeleteMetricEntry(lookupChlCounts);
 
@@ -277,8 +238,7 @@ public class MQMetricSummary extends MQBase {
 			
 		}
 		channels.setChannel(channelList);
-		
-		
+			
 		try {
 			
 			if (this._debug) { log.info("Creating JSON file :" + fileName ); }

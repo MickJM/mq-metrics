@@ -26,8 +26,10 @@ public class MQBase {
 		
 		public int BASE = 0;
 		public int PCF_INIT_VALUE = 0;
-
 		public int NOTSET = -1;
+		public int MULTIINSTANCE = 1;
+		public int NOT_MULTIINSTANCE = 0;
+		
 	}
 	
 	protected void DeleteMetricEntry(String lookup) {

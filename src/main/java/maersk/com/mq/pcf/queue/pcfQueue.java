@@ -1,5 +1,13 @@
 package maersk.com.mq.pcf.queue;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Get queue details
+ * 
+ */
+
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -23,6 +31,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
+import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 @Component
 public class pcfQueue extends MQBase {
@@ -54,19 +63,8 @@ public class pcfQueue extends MQBase {
 	protected static final String lookupOldMsgAge = MQPREFIX + "oldestMsgAge";
 	protected static final String lookupdeQueued = MQPREFIX + "deQueued";
 	protected static final String lookupenQueued = MQPREFIX + "enQueued";
+	protected static final String lookupQueueProcesses = MQPREFIX + "queueProcesses";
 
-	 //Queue maps
-    private Map<String,AtomicInteger>queueDepMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueDeqMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueEnqMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicLong>queueLGDMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicLong>queueLPDMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicLong>queueAgeMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicInteger>queueOpenInMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueOpenOutMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueMaxDepthMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueHandleMap = new HashMap<String, AtomicInteger>();
-    
     private PCFMessageAgent messageAgent;
     public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
@@ -102,7 +100,10 @@ public class pcfQueue extends MQBase {
 		// ... old metric objects ...
 		
 		SetMetricsValue();
-		
+
+		/*
+		 * For each response, get the MQ details
+		 */
 		for (PCFMessage pcfMsg : pcfResponse) {
 			String queueName = null;
 			try {
@@ -112,18 +113,19 @@ public class pcfQueue extends MQBase {
 				if (checkQueueNames(queueName)) {
 				
 					int qType = pcfMsg.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
-					if ((qType != 1) && (qType != 3)) {
+					if ((qType != MQConstants.MQQT_LOCAL) && (qType != MQConstants.MQQT_ALIAS)) {
 						if (this._debug) { log.info("pcfQueue: not needed : "); }
 						throw new Exception("Not needed");
 					}
 					
-	 				String queueType = GetQueueType(qType);
 					int qUsage = 0;
-					String queueUsage = "";
 					int value = 0;
-					String queueCluster = "";
 					
-					if (qType != 3) {
+	 				String queueType = GetQueueType(qType);
+					String queueCluster = "";
+					String queueUsage = "";
+					
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue local"); }
 						qUsage = pcfMsg.getIntParameterValue(MQConstants.MQIA_USAGE);
 						queueUsage = "Normal";
@@ -144,12 +146,10 @@ public class pcfQueue extends MQBase {
 
 					PCFMessage pcfInqStat = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
 					pcfInqStat.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-					//int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
-					//pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS, pcfParmAttrs);
 
 					PCFMessage[] pcfResStat = null;
 					PCFMessage[] pcfResResp = null;
-					if (qType != 3) {
+					if (qType != MQConstants.MQQT_ALIAS) {
 						pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);					
 						pcfResStat = this.messageAgent.send(pcfInqStat);
 						PCFMessage pcfReset = new PCFMessage(MQConstants.MQCMD_RESET_Q_STATS);
@@ -170,28 +170,11 @@ public class pcfQueue extends MQBase {
 									)
 							,value);
 
-					/*
-					AtomicInteger i = queueDepMap.get(queueName);
-					if (i == null) {
-						queueDepMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("queueDepth").toString(), 
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(value)));
-					} else {
-						i.set(value);
-					}
-					*/
-					
-					if (qType != 3) {
+					int openInvalue = 0;
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue input count"); }
 						// OpenInput count
-						int openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);						
+						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);						
 						meterRegistry.gauge(lookupOpenIn, 
 								Tags.of("queueManagerName", this.queueManager,
 										"queueName", queueName,
@@ -200,30 +183,13 @@ public class pcfQueue extends MQBase {
 										"cluster",queueCluster
 										)
 								,openInvalue);
-						
-						/*
-						AtomicInteger inC = queueOpenInMap.get(queueName);
-						if (inC == null) {
-							queueOpenInMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("openInputCount").toString(),
-									Tags.of("queueManagerName", this.queueManager,
-											"queueName", queueName,
-											"queueType", queueType,
-											"usage",queueUsage,
-											"cluster",queueCluster
-											),
-									new AtomicInteger(openInvalue)));
-						} else {
-							inC.set(openInvalue);
-						}
-						*/
 					}
 					
-					if (qType != 3) {
+					int openOutvalue = 0;
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue output count"); }
 					// Open output count
-						int openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
+						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 						meterRegistry.gauge(lookupOpenOut, 
 								Tags.of("queueManagerName", this.queueManager,
 										"queueName", queueName,
@@ -233,30 +199,13 @@ public class pcfQueue extends MQBase {
 										)
 								,openOutvalue);
 						
-						/*
-						AtomicInteger outC = queueOpenOutMap.get(queueName);
-						if (outC == null) {
-							queueOpenOutMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("openOutputCount").toString(), 
-									Tags.of("queueManagerName", this.queueManager,
-											"queueName", queueName,
-											"queueType", queueType,
-											"usage",queueUsage,
-											"cluster",queueCluster
-											),
-									new AtomicInteger(openOutvalue)));
-						} else {
-							outC.set(openOutvalue);
-						}
-						*/
-						
 					}
-					//if ((openInvalue > 0) || (openOutvalue > 0) ) {
-					//	ProcessQueueHandlers(queueName);	
-					//}
 
-					if (qType != 3) {
+					if ((openInvalue > 0) || (openOutvalue > 0) ) {
+						ProcessQueueHandlers(queueName, queueCluster);
+					}
+
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue depth"); }
 						// Maximum queue depth
 						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
@@ -269,24 +218,6 @@ public class pcfQueue extends MQBase {
 										)
 								,value);
 
-						/*
-						AtomicInteger maxqd = queueMaxDepthMap.get(queueName);
-						if (maxqd == null) {
-							queueMaxDepthMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("maxQueueDepth").toString(), 
-									Tags.of("queueManagerName", this.queueManager,
-											"queueName", queueName,
-											"queueType", queueType,
-											"usage",queueUsage,
-											"cluster",queueCluster
-											),
-									new AtomicInteger(value)));
-						} else {
-							maxqd.set(value);
-						}
-						*/
-						
 					}
 
 					
@@ -296,7 +227,7 @@ public class pcfQueue extends MQBase {
 					// MQMON_LOW	- Monitoring data collection is turned on, with low ratio of data collection
 					// MQMON_MEDIUM	- Monitoring data collection is turned on, with moderate ratio of data collection
 					// MQMON_HIGH	- Monitoring data collection is turned on, with high ratio of data collection
-					if (qType != 3) {
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue monitoring"); }
 						if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
 								|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
@@ -322,24 +253,6 @@ public class pcfQueue extends MQBase {
 												)
 										,ld);
 								
-								/*
-								AtomicLong lgd = queueLGDMap.get(queueName);
-								if (lgd == null) {
-									queueLGDMap.put(queueName, Metrics.gauge(new StringBuilder()
-											.append(MQPREFIX)
-											.append("lastGetDateTime").toString(), 
-											Tags.of("queueManagerName", this.queueManager,
-													"queueName", queueName,
-													"queueType", queueType,
-													"usage",queueUsage,
-													"cluster",queueCluster,
-													"type", "timestamp"
-													),
-											new AtomicLong(ld)));
-								} else {
-									lgd.set(ld);
-								}
-								*/							
 							}
 		
 							String lastPutDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
@@ -363,24 +276,6 @@ public class pcfQueue extends MQBase {
 												"cluster",queueCluster
 												)
 										,ld);
-								/*
-								AtomicLong lpd = queueLPDMap.get(queueName);
-								if (lpd == null) {
-									queueLPDMap.put(queueName, Metrics.gauge(new StringBuilder()
-											.append(MQPREFIX)
-											.append("lastPutDateTime").toString(), 
-											Tags.of("queueManagerName", this.queueManager,
-													"queueName", queueName,
-													"queueType", queueType,
-													"usage",queueUsage,
-													"cluster",queueCluster,
-													"type", "timestamp"
-													),
-											new AtomicLong(ld)));
-								} else {
-									lpd.set(ld);
-								}
-								*/							
 							}										
 							
 							if (this._debug) { log.info("pcfQueue: inquire queue old-age"); }
@@ -396,28 +291,10 @@ public class pcfQueue extends MQBase {
 											)
 									,old);
 							
-							/*
-							AtomicLong age = queueAgeMap.get(queueName);
-							if (age == null) {
-								queueAgeMap.put(queueName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("oldestMsgAge").toString(), 
-										Tags.of("queueManagerName", this.queueManager,
-												"queueName", queueName,
-												"queueType", queueType,
-												"usage",queueUsage,
-												"cluster",queueCluster,
-												"type", "seconds"
-												),
-										new AtomicLong(old)));
-							} else {
-								age.set(old);
-							}
-							*/							
 						}
 					}
 					
-					if (qType != 3) {
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue de-queued"); }
 						// Messages DeQueued
 						int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
@@ -430,27 +307,9 @@ public class pcfQueue extends MQBase {
 										)
 								,devalue);
 						
-						/*
-						AtomicInteger d = queueDeqMap.get(queueName);
-						if (d == null) {
-							queueDeqMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("deQueued").toString(),
-									Tags.of("queueManagerName", this.queueManager,
-											"queueName", queueName,
-											"queueType", queueType,
-											"usage",queueUsage,
-											"cluster",queueCluster
-											),
-									new AtomicInteger(devalue)));
-						} else {
-							d.set(devalue);
-						}
-						*/
-						
 					}
 
-					if (qType != 3) {
+					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue en-queued"); }
 						// Messages EnQueued
 						int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
@@ -463,23 +322,6 @@ public class pcfQueue extends MQBase {
 										)
 								,envalue);
 
-						/*
-						AtomicInteger e = queueEnqMap.get(queueName);
-						if (e == null) {
-							queueEnqMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("enQueued").toString(), 
-									Tags.of("queueManagerName", this.queueManager,
-											"queueName", queueName,
-											"queueType", queueType,
-											"usage",queueUsage,
-											"cluster",queueCluster
-											),
-									new AtomicInteger(envalue)));
-						} else {
-							e.set(envalue);
-						}
-						*/
 					}
 				}
 				
@@ -489,7 +331,42 @@ public class pcfQueue extends MQBase {
 			}
 		}
 	}
-    
+
+	/*
+	 * Get the handles from each queue
+	 */
+	private void ProcessQueueHandlers(String queueName, String cluster ) throws MQException, IOException, MQDataException {
+		
+		PCFMessage pcfInqHandle = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
+		pcfInqHandle.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+		pcfInqHandle.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_HANDLE);					
+		PCFMessage[] pcfResHandle = this.messageAgent.send(pcfInqHandle);
+
+		int seq = 0;
+		for (PCFMessage pcfMsg : pcfResHandle) {
+			int state = pcfMsg.getIntParameterValue(MQConstants.MQIACF_HANDLE_STATE);
+			String conn = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
+			String appName = 
+					pcfMsg.getStringParameterValue(MQConstants.MQCACF_APPL_TAG).trim();			
+			String userId = 
+					pcfMsg.getStringParameterValue(MQConstants.MQCACF_USER_IDENTIFIER).trim();			
+
+			meterRegistry.gauge(lookupQueueProcesses, 
+					Tags.of("queueManagerName", this.queueManager,
+							"cluster",cluster,
+							"queueName", queueName.trim(),
+							"application", appName.trim(),
+							"user", userId,
+							"seq",Integer.toString(seq)
+							)
+					, state);
+			
+			seq++;
+		}
+				
+	}
+	
+	
 	/*
 	 * Check for the queue names
 	 */
@@ -566,19 +443,16 @@ public class pcfQueue extends MQBase {
 		return queueType;
 	}
 	
-	
-	// Not running
-	public void NotRunning() {
-		SetMetricsValue();
-	}
-
-	private void ResetMetrics() {
+	/*
+	 * Reset metrics
+	 */
+	public void resetMetric() {
 		SetMetricsValue();
 		
 	}
 	
 	// If the queue manager is not running, set any listeners state not running
-	public void SetMetricsValue() {
+	private void SetMetricsValue() {
 
 		DeleteMetricEntry(lookupQueDepth);
 		DeleteMetricEntry(lookupOpenIn);
@@ -589,134 +463,10 @@ public class pcfQueue extends MQBase {
 		DeleteMetricEntry(lookupOldMsgAge);
 		DeleteMetricEntry(lookupdeQueued);
 		DeleteMetricEntry(lookupenQueued);
+		DeleteMetricEntry(lookupQueueProcesses);
 
-		/*
-		// For each listener, set the status to indicate its not running, as the ...
-		// ... queue manager is not running
-		Iterator<Entry<String, AtomicInteger>> qdepth = this.queueDepMap.entrySet().iterator();
-		while (qdepth.hasNext()) {
-	        Map.Entry pair = (Map.Entry)qdepth.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueDepth metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicInteger>> deq = this.queueDeqMap.entrySet().iterator();
-		while (deq.hasNext()) {
-	        Map.Entry pair = (Map.Entry)deq.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set DeQueued metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> enq = this.queueEnqMap.entrySet().iterator();
-		while (enq.hasNext()) {
-	        Map.Entry pair = (Map.Entry)enq.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set EnqQueued metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicLong>> lgd = this.queueLGDMap.entrySet().iterator();
-		while (lgd.hasNext()) {
-	        Map.Entry pair = (Map.Entry)lgd.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set LastGetDate metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicLong>> lpd = this.queueLPDMap.entrySet().iterator();
-		while (lpd.hasNext()) {
-	        Map.Entry pair = (Map.Entry)lpd.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set LastPutDate metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicLong>> age = this.queueAgeMap.entrySet().iterator();
-		while (age.hasNext()) {
-	        Map.Entry pair = (Map.Entry)age.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueMessageAge metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> oin = this.queueOpenInMap.entrySet().iterator();
-		while (oin.hasNext()) {
-	        Map.Entry pair = (Map.Entry)oin.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenInCount metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> oout = this.queueOpenOutMap.entrySet().iterator();
-		while (oout.hasNext()) {
-	        Map.Entry pair = (Map.Entry)oout.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenOutCount metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicInteger>> max = this.queueMaxDepthMap.entrySet().iterator();
-		while (max.hasNext()) {
-	        Map.Entry pair = (Map.Entry)max.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenOutCount metrics");
-	        }
-		}
-		*/
 		
 	}
 	
-	private void resetMetric(String val) {
-		DeleteMetricEntry(val);
-
-	}
-
 
 }

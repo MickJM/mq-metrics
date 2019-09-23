@@ -1,10 +1,11 @@
 application:
-  debug: true
+  debug: false
 ibm:
   mq:
     queueManager1: QMAP01
     channel1: MQ.TLS.SVRCONN
     connName1: localhost(1442)
+    multiInstance: false
     queueManager: QMAP01
     channel: MQ.MONITOR.PCF
     connName: localhost(1442)
