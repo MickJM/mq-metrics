@@ -96,6 +96,8 @@ public class MQConnection extends MQBase {
 	private String password;
 	@Value("${ibm.mq.sslCipherSpec}")
 	private String cipher;
+	@Value("${ibm.mq.local:false}")
+	private boolean local;
 
 	//
 	@Value("${ibm.mq.useSSL}")
@@ -316,7 +318,11 @@ public class MQConnection extends MQBase {
 		
 		log.info("Attempting to connect to queue manager " + this.queueManager);
 		if (this.queManager == null) {
-			this.queManager = new MQQueueManager(this.queueManager, env);
+			if (this.local) {
+				this.queManager = new MQQueueManager(this.queueManager);
+			} else {
+				this.queManager = new MQQueueManager(this.queueManager, env);
+			}
 			log.info("Connection to queue manager established ");
 			
 		} else {

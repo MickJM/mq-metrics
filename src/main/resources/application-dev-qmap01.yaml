@@ -5,14 +5,15 @@ ibm:
     queueManager1: QMAP01
     channel1: MQ.TLS.SVRCONN
     connName1: localhost(1442)
-    multiInstance: false
+    multiInstance: true
     queueManager: QMAP01
     channel: MQ.MONITOR.PCF
-    connName: localhost(1442)
+    connName: localhost(1455)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     useSSL: false
     user: MQMon01
     password: 
+    local: true
     objects:
       queues:
         include: "*"
