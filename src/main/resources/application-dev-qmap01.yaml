@@ -8,12 +8,12 @@ ibm:
     multiInstance: true
     queueManager: QMAP01
     channel: MQ.MONITOR.PCF
-    connName: localhost(1455)
+    connName: localhost(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     useSSL: false
     user: MQMon01
     password: 
-    local: true
+    local: false
     objects:
       queues:
         include: "*"

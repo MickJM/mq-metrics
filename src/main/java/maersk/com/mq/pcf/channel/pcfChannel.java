@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,6 +29,7 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
@@ -43,6 +45,7 @@ public class pcfChannel extends MQBase {
 	protected static final String lookupMsgRec = MQPREFIX + "messagesReceived";
 	protected static final String lookupBytesRec = MQPREFIX + "bytesReceived";
 	protected static final String lookupBytesSent = MQPREFIX + "bytesSent";
+	protected static final String lookupClientConnection = MQPREFIX + "clientConnections";
 
 	private String queueManager;
 
@@ -64,12 +67,6 @@ public class pcfChannel extends MQBase {
     
     }
 	
-    //Channel maps
-    private Map<String,AtomicInteger>channelStatusMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicLong>msgsReceived = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicInteger>bytesReceived = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>bytesSent = new HashMap<String, AtomicInteger>();
-
     private MQMetricSummary metricSummary;    
     private int metricSummaryCount = 0;
     
@@ -162,7 +159,6 @@ public class pcfChannel extends MQBase {
 						//for (PCFMessage pcfMessage : pcfResp) {
 							
 						int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
-						String conn = pcfResp[0].getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
 						meterRegistry.gauge(lookupChannel, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -195,6 +191,8 @@ public class pcfChannel extends MQBase {
 
 					}
 	
+					// Add IP address details here ...
+					
 					long msgsOverChannels = 0l;
 					int bytesReceviedOverChannels = MQPCFConstants.BASE;
 					int bytesSentOverChannels = MQPCFConstants.BASE;
@@ -250,6 +248,9 @@ public class pcfChannel extends MQBase {
 						// Count the messages over the number of threads on each channel
 						for (PCFMessage pcfM : pcfResp) {
 							int bytes = pcfM.getIntParameterValue(MQConstants.MQIACH_BYTES_RECEIVED);										
+							if (bytes < 0) {
+								bytes = bytes * -1;
+							}
 							bytesReceviedOverChannels += bytes;
 						}	
 						meterRegistry.gauge(lookupBytesRec, 
@@ -275,6 +276,9 @@ public class pcfChannel extends MQBase {
 						// Count the messages over the number of threads on each channel
 						for (PCFMessage pcfM : pcfResp) {
 							int bytes = pcfM.getIntParameterValue(MQConstants.MQIACH_BYTES_SENT);
+							if (bytes < 0) {
+								bytes = bytes * -1;
+							}
 							bytesSentOverChannels += bytes;
 						}
 						meterRegistry.gauge(lookupBytesSent, 
@@ -294,11 +298,12 @@ public class pcfChannel extends MQBase {
 										)
 								,MQPCFConstants.PCF_INIT_VALUE);
 						
-					}
+					}			
 				}
 			}
+			
 		} catch (Exception e) {
-			if (this._debug) { log.warn("pcfChannel: unable to get channel metrcis " + e.getMessage()); }
+			if (this._debug) { log.warn("pcfChannel: unable to get channel metrics " + e.getMessage()); }
 		
 		}
 		

@@ -52,10 +52,10 @@ public class pcfQueueManager extends MQBase {
 	protected static final String lookupMultiInstance = MQPREFIX + "multiInstance";
 	
     //Queue Manager / IIB maps
-    private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
+    //private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
 
     //Command Server maps
-    private Map<String,AtomicInteger>cmdStatusMap = new HashMap<String, AtomicInteger>();
+    //private Map<String,AtomicInteger>cmdStatusMap = new HashMap<String, AtomicInteger>();
 
     private Boolean multiInstance = false;
     
@@ -88,11 +88,11 @@ public class pcfQueueManager extends MQBase {
     /*
      * Set the number of iterations that the metrics are collected
      */
-	public void ResetIteration() {
+	public void ResetIteration(String queueMan) {
 
 		resetMetric(lookupReset);
 		meterRegistry.gauge(lookupReset, 
-				Tags.of("queueManagerName", this.queueManager)
+				Tags.of("queueManagerName", queueMan)
 				,this.resetIterations);
 
 	}

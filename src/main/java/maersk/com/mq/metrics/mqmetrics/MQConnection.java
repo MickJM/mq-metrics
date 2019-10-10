@@ -72,6 +72,9 @@ import maersk.com.mq.pcf.channel.pcfChannel;
 @Component
 public class MQConnection extends MQBase {
 
+	//
+	private boolean onceOnly = true;
+	
 	// taken from connName
 	private String hostName;
 
@@ -176,9 +179,10 @@ public class MQConnection extends MQBase {
 	@Scheduled(fixedDelayString="${ibm.mq.event.delayInMilliSeconds}")
     public void Scheduler() {
 	
+		ResetIterations();
+
 		try {
 			if (this.messageAgent != null) {
-				ResetIterations();
 				CheckQueueManagerCluster();
 				UpdateQMMetrics();
 				UpdateListenerMetrics();
@@ -265,7 +269,9 @@ public class MQConnection extends MQBase {
 		env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 
 		if (this.multiInstance) {
-			log.info("MQ Metrics is running in multiInstance mode");
+			if (this.onceOnly) {
+				log.info("MQ Metrics is running in multiInstance mode");
+			}
 		}
 		
 		if (this._debug) {
@@ -316,7 +322,11 @@ public class MQConnection extends MQBase {
 			}
 		}
 		
-		log.info("Attempting to connect to queue manager " + this.queueManager);
+		if (this.onceOnly) {
+			log.info("Attempting to connect to queue manager " + this.queueManager);
+			this.onceOnly = false;
+		}
+		
 		if (this.queManager == null) {
 			if (this.local) {
 				this.queManager = new MQQueueManager(this.queueManager);
@@ -416,7 +426,7 @@ public class MQConnection extends MQBase {
 	 */
 	private void ResetIterations() {
 		
-		this.pcfQueueManager.ResetIteration();
+		this.pcfQueueManager.ResetIteration(this.queueManager);
 			
 	}
 	
