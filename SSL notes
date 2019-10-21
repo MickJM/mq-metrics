@@ -1,3 +1,7 @@
+
+# mq web
+https://www.ibm.com/developerworks/community/blogs/messaging/entry/Bitesize_Blogging_MQ_9_0_1_IBM_MQ_Console_Authentication?lang=en
+
 #
 # Use mutual authentication
 #
@@ -27,10 +31,13 @@ Java app keystore / truststore (same files)
 # self signed
 
 1) create empty keystore
+runmqakm -keydb -create -db key.kdb -pw Passw0rd -stash 
+
 runmqakm -keydb -create -db qmap01key.kdb -pw Passw0rd -stash 
 runmqakm -keydb -create -db test.kdb -pw Passw0rd -stash 
 
 2) list certs
+runmqakm -cert -list -db key.kdb -stashed
 runmqakm -cert -list -db qmap01key.kdb -stashed
 runmqakm -cert -list -db tstqpd01key.kdb -stashed
 runmqakm -cert -list -db test.kdb -stashed
@@ -42,13 +49,19 @@ runmqakm -certreq -create -label ibmwebspheremqtest -stashed -size 2048 -sig_alg
 
 
 3) create cert
+runmqakm -cert -create -label ibmwebspheremqaceq01 -stashed -expire 730 -size 2048 -dn "CN=ACEQ01,OU=TEST,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=mick.mozzland@virgin.net" -db key.kdb -ca false
+
 runmqakm -cert -create -label ibmwebspheremq{queue manager name} -stashed -expire 730 -size 2048 -dn "CN={Queue manager name},OU={environment},OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email={support email@maersk.com}" -db key.kdb -ca false
 runmqakm -cert -create -label ibmwebspheremqqmap01 -stashed -expire 730 -size 2048 -dn "CN=QMAP01,OU=DEV,OU=QMGR,OU=ADMIN,O=DevOps,L=Copenhagen,ST=DK,email=michael.moriarty@maersk.com" -db qmap01key.kdb -ca false
 
 4) show cert details  
+runmqakm -cert -details -db key.kdb -stashed -label caroot
 runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremq{queue manager name}
+runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremqaceq01
 
 5) extract cert
+runmqakm -cert -extract -db key.kdb -stashed -label ibmwebspheremqaceq01 -target aceq01.arm -format ascii
+
 runmqakm -cert -extract -db key.kdb -stashed -label ibmwebspheremq{queue manager name} -target {queue manager name}.arm -format ascii
 runmqakm -cert -extract -db tstqpd01key.kdb -stashed -label ibmwebspheremqtstqpd01 -target tstqpd01.arm -format ascii
 runmqakm -cert -extract -db tstqpd01key.kdb -stashed -label MQ_CA -target mq_ca.arm -format ascii

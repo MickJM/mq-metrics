@@ -123,9 +123,6 @@ public class MQConnection extends MQBase {
     private PCFMessageAgent messageAgent = null;
     private PCFAgent agent = null;
     
-    private Map<String,Map<String,AtomicInteger>>collectionqueueHandleMaps 
-			= new HashMap<String,Map<String,AtomicInteger>>();
-    
     //
     static Logger log = Logger.getLogger(MQConnection.class);
 
@@ -201,14 +198,19 @@ public class MQConnection extends MQBase {
 				log.error("PCFException " + p.getMessage());
 			}
 			CloseQMConnection();
-			QueueManagerIsNotRunning();
+			QueueManagerIsNotRunning(p.reasonCode);
 			
 		} catch (MQException m) {
 			if (!this.multiInstance) {
 				log.error("MQException " + m.getMessage());
 			}
 			CloseQMConnection();
-			QueueManagerIsNotRunning();
+			if (m.reasonCode == MQConstants.MQRC_STANDBY_Q_MGR) {
+				if (this._debug) {
+					log.info("Queue manager is running in STANDBY mode");
+				}
+			}
+			QueueManagerIsNotRunning(m.reasonCode);
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
@@ -216,14 +218,14 @@ public class MQConnection extends MQBase {
 				log.error("IOException " + i.getMessage());
 			}
 			CloseQMConnection();
-			QueueManagerIsNotRunning();
+			QueueManagerIsNotRunning(0);
 			
 		} catch (Exception e) {
 			if (!this.multiInstance) {
 				log.error("Exception " + e.getMessage());
 			}
 			CloseQMConnection();
-			QueueManagerIsNotRunning();
+			QueueManagerIsNotRunning(0);
 		}
     }
     
@@ -338,7 +340,7 @@ public class MQConnection extends MQBase {
 		} else {
 			log.info("Connection to queue manager is already established ");
 		}
-		
+
 		log.info("Creating PCFAgent ");
 		if (this.messageAgent == null) {
 			this.messageAgent = new PCFMessageAgent(queManager);
@@ -405,10 +407,10 @@ public class MQConnection extends MQBase {
 	/*
 	 * When the queue manager isn't running, send back a status of inactive 
 	 */
-	private void QueueManagerIsNotRunning() {
+	private void QueueManagerIsNotRunning(int status) {
 
 		if (this.pcfQueueManager != null) {
-			this.pcfQueueManager.NotRunning(this.queueManager, this.multiInstance);
+			this.pcfQueueManager.NotRunning(this.queueManager, this.multiInstance, status);
 		}
 		if (this.pcfListener != null) {
 			this.pcfListener.resetMetric();

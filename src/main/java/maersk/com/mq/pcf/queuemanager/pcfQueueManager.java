@@ -9,7 +9,9 @@ package maersk.com.mq.pcf.queuemanager;
  */
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,11 +29,15 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQConnection;
 import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
+
+import java.util.Collections.*;
 
 @Component
 public class pcfQueueManager extends MQBase {
@@ -153,8 +159,9 @@ public class pcfQueueManager extends MQBase {
 				Tags.of("queueManagerName", this.queueManager,
 						"cluster",getQueueManagerClusterName())
 				,qmStatus);
-
+		
 		// Multi instance
+		/*
 		int val = MQPCFConstants.MULTIINSTANCE;
 		if (!this.multiInstance) {
 			val = MQPCFConstants.NOT_MULTIINSTANCE;
@@ -163,6 +170,7 @@ public class pcfQueueManager extends MQBase {
 		meterRegistry.gauge(lookupMultiInstance, 
 				Tags.of("queueManagerName", this.queueManager)
 				,val);
+		*/
 		
 		// command server status
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
@@ -176,7 +184,7 @@ public class pcfQueueManager extends MQBase {
 	/*
 	 * Called from the main class, if we are not running, set the status
 	 */
-	public void NotRunning(String qm, Boolean mi) {
+	public void NotRunning(String qm, Boolean mi, int status) {
 
 		if (this.queueManager != null) {
 			qm = this.queueManager;
@@ -190,9 +198,13 @@ public class pcfQueueManager extends MQBase {
 				,MQPCFConstants.PCF_INIT_VALUE);
 
 		int val = MQPCFConstants.MULTIINSTANCE;
-		if (!mi) {
+		//if (!mi) {
+		//	val = MQPCFConstants.NOT_MULTIINSTANCE;
+		//}
+		if (status != MQConstants.MQRC_STANDBY_Q_MGR) {
 			val = MQPCFConstants.NOT_MULTIINSTANCE;
 		}
+
 		// Set the queue manager status to indicate that its not running
 		resetMetric(lookupMultiInstance);
 		meterRegistry.gauge(lookupMultiInstance, 

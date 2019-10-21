@@ -6,6 +6,9 @@ package maersk.com.mq.pcf.queue;
  *
  * Get queue details
  * 
+ * 17/10/2019 - Amended MaxQueueDepth to maxQueueDepth, LastGetDateTime to lastGetDateTime, LastPutDateTime to lastPutDateTime
+ * 17/10/2019 - Amended the calculation of the Epoch value for lastGetDateTime and lastPutDateTime
+ * 
  */
 
 import java.io.IOException;
@@ -57,9 +60,9 @@ public class pcfQueue extends MQBase {
 	protected static final String lookupQueDepth = MQPREFIX + "queueDepth";
 	protected static final String lookupOpenIn = MQPREFIX + "openInputCount";
 	protected static final String lookupOpenOut = MQPREFIX + "openOutputCount";
-	protected static final String lookupMaxDepth = MQPREFIX + "MaxQueueDepth";
-	protected static final String lookupLastGetDateTime = MQPREFIX + "LastGetDateTime";
-	protected static final String lookupLastPutDateTime = MQPREFIX + "LastPutDateTime";
+	protected static final String lookupMaxDepth = MQPREFIX + "maxQueueDepth";
+	protected static final String lookupLastGetDateTime = MQPREFIX + "lastGetDateTime";
+	protected static final String lookupLastPutDateTime = MQPREFIX + "lastPutDateTime";
 	protected static final String lookupOldMsgAge = MQPREFIX + "oldestMsgAge";
 	protected static final String lookupdeQueued = MQPREFIX + "deQueued";
 	protected static final String lookupenQueued = MQPREFIX + "enQueued";
@@ -82,7 +85,9 @@ public class pcfQueue extends MQBase {
 
 		if (this._debug) { log.info("pcfQueue: inquire queue request"); }
 
-		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+		// 17/10/2019 Amended to include HH.mm.ss
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
+
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q);
 		pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, "*");
 		pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_ALL);		
@@ -234,14 +239,10 @@ public class pcfQueue extends MQBase {
 							String lastGetDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
 							String lastGetTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
 							if (!(lastGetDate.equals(" ") && lastGetTime.equals(" "))) {
-								Date dt = formatter.parse(lastGetDate);
-								long ld = dt.getTime() / (24*60*60*1000);	
-								long hrs = Integer.parseInt(lastGetTime.substring(0, 2));
-								long min = Integer.parseInt(lastGetTime.substring(3, 5));
-								long sec = Integer.parseInt(lastGetTime.substring(6, 8));
-								long seconds = sec + (60 * min) + (3600 * hrs);
-								ld *= 86400;
-								ld += seconds;
+					
+					// 17/10/2019 Amened to correctly calcuate the epoch value			
+								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
+								long ld = dt.getTime();
 								
 								// Last Get date and time
 								meterRegistry.gauge(lookupLastGetDateTime, 
@@ -258,14 +259,10 @@ public class pcfQueue extends MQBase {
 							String lastPutDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
 							String lastPutTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
 							if (!(lastPutDate.equals(" ") && lastPutTime.equals(" "))) {
-								Date dt = formatter.parse(lastPutDate);
-								long ld = dt.getTime() / (24*60*60*1000);	
-								long hrs = Integer.parseInt(lastPutTime.substring(0, 2));
-								long min = Integer.parseInt(lastPutTime.substring(3, 5));
-								long sec = Integer.parseInt(lastPutTime.substring(6, 8));
-								long seconds = sec + (60 * min) + (3600 * hrs);
-								ld *= 86400;
-								ld += seconds;
+								
+					// 17/10/2019 Amened to correctly calcuate the epoch value				
+								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
+								long ld = dt.getTime();
 								
 								// Last put date and time
 								meterRegistry.gauge(lookupLastPutDateTime, 
