@@ -6,6 +6,8 @@ package maersk.com.mq.pcf.queuemanager;
  *
  * Get queue manager details
  * 
+ * 22/10/2019 - When the queue manager is not running, check if the status is multi-instance
+ *              and set the status accordingly
  */
 
 import java.io.IOException;
@@ -160,18 +162,6 @@ public class pcfQueueManager extends MQBase {
 						"cluster",getQueueManagerClusterName())
 				,qmStatus);
 		
-		// Multi instance
-		/*
-		int val = MQPCFConstants.MULTIINSTANCE;
-		if (!this.multiInstance) {
-			val = MQPCFConstants.NOT_MULTIINSTANCE;
-		}
-		resetMetric(lookupMultiInstance);
-		meterRegistry.gauge(lookupMultiInstance, 
-				Tags.of("queueManagerName", this.queueManager)
-				,val);
-		*/
-		
 		// command server status
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		resetMetric(cmdLookupStatus);
@@ -191,21 +181,35 @@ public class pcfQueueManager extends MQBase {
 		}
 		
 		// Set the queue manager status to indicate that its not running
+		// If the multiInstance flag is set to true, then set the queue manager to be in standby
+		//
+		// NOTE: There is an issue with the above, as if the queue manager was in a STOPPED state, then
+		//       the status would ALWAYS show as STANDBY
+		// 0 - stopped, 1 - starting, 2 - running, 3 - quiescing, 4 - standby
+		//
+		// Can never get starting, quiescing or standby at the moment using a client connection ...
+		//   as there needs to be a connection to the queue manager
+		//
+		
 		resetMetric(lookupStatus);
+		int val = MQPCFConstants.PCF_INIT_VALUE;
+		if (status == MQConstants.MQRC_STANDBY_Q_MGR) {
+			val = MQConstants.MQQMSTA_STANDBY;
+		} 		
+		if (status == MQConstants.MQRC_Q_MGR_QUIESCING) {
+			val = MQConstants.MQQMSTA_QUIESCING;
+		} 		
+
 		meterRegistry.gauge(lookupStatus, 
 				Tags.of("queueManagerName", qm,
 						"cluster",getQueueManagerClusterName())
-				,MQPCFConstants.PCF_INIT_VALUE);
+				,val);
 
-		int val = MQPCFConstants.MULTIINSTANCE;
-		//if (!mi) {
-		//	val = MQPCFConstants.NOT_MULTIINSTANCE;
-		//}
-		if (status != MQConstants.MQRC_STANDBY_Q_MGR) {
-			val = MQPCFConstants.NOT_MULTIINSTANCE;
+		// Set the queue manager status to indicate that its in multi-instance
+		val = MQPCFConstants.NOT_MULTIINSTANCE;
+		if (mi) {
+			val = MQPCFConstants.MULTIINSTANCE;
 		}
-
-		// Set the queue manager status to indicate that its not running
 		resetMetric(lookupMultiInstance);
 		meterRegistry.gauge(lookupMultiInstance, 
 				Tags.of("queueManagerName", qm)

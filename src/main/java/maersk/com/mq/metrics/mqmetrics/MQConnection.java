@@ -6,6 +6,8 @@ package maersk.com.mq.metrics.mqmetrics;
  *
  * Connect to a queue manager
  * 
+ * 22/10/2019 - Capture the return code when the queue manager throws an error so multi-instance queue
+ *              managers can be checked
  */
 
 import java.io.File;
@@ -197,20 +199,16 @@ public class MQConnection extends MQBase {
 			if (!this.multiInstance) {
 				log.error("PCFException " + p.getMessage());
 			}
+			log.debug("PCFException: ReasonCode " + p.getReason());
 			CloseQMConnection();
-			QueueManagerIsNotRunning(p.reasonCode);
+			QueueManagerIsNotRunning(p.getReason());
 			
 		} catch (MQException m) {
 			if (!this.multiInstance) {
 				log.error("MQException " + m.getMessage());
 			}
 			CloseQMConnection();
-			if (m.reasonCode == MQConstants.MQRC_STANDBY_Q_MGR) {
-				if (this._debug) {
-					log.info("Queue manager is running in STANDBY mode");
-				}
-			}
-			QueueManagerIsNotRunning(m.reasonCode);
+			QueueManagerIsNotRunning(m.getReason());
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
