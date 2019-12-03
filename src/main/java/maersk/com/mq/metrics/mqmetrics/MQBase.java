@@ -32,6 +32,9 @@ public class MQBase {
 		
 	}
 	
+	/*
+	 * Delete the appropriate metric
+	 */
 	protected void DeleteMetricEntry(String lookup) {
 		
 		List<Meter.Id> meterIds = null;
@@ -47,6 +50,30 @@ public class MQBase {
 			}
 		}
 		
+	}
+
+	/*
+	 * Find the appropriate metric
+	 */
+	protected Meter.Id FindMetricEntry(String lookup) {
+		
+		List<Meter.Id> meterIds = null;
+		meterIds = this.meterRegistry.getMeters().stream()
+		        .map(Meter::getId)
+		        .collect(Collectors.toList());
+		
+		Iterator<Id> list = meterIds.iterator();
+		Meter.Id id = null;
+		
+		while (list.hasNext()) {
+			id = list.next();
+			if (id.getName().contains(lookup)) {
+				//this.meterRegistry.remove(id);
+				break;
+			}
+		}
+		
+		return id; 
 	}
 
 }

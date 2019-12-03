@@ -4,13 +4,14 @@ ibm:
   mq:
     queueManager1: QMAP01
     channel1: MQ.TLS.SVRCONN
+    channel2: MQ.MONITOR.PCF
     connName1: localhost(1442)
-    multiInstance: true
+    multiInstance: false
     queueManager: QMAP01
-    channel: MQ.MONITOR.PCF
+    channel: MQ.TLS.SVRCONN
     connName: localhost(1442)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
-    useSSL: false
+    useSSL: true
     user: MQMon01
     password: 
     local: false

@@ -416,9 +416,6 @@ public class MQConnection extends MQBase {
 		if (this.pcfChannel != null) {
 			this.pcfChannel.resetMetric();			
 		}
-		if (this.pcfQueue != null) {
-			this.pcfQueue.resetMetric();
-		}
 	}
 
 	/*
@@ -446,9 +443,9 @@ public class MQConnection extends MQBase {
 	 * 
 	 */
 	private void UpdateQMMetrics() throws PCFException, 
-											MQException, 
-											IOException, 
-											MQDataException {
+		MQException, 
+		IOException, 
+		MQDataException {
 
 		this.pcfQueueManager.UpdateQMMetrics();
 		this.pcfQueue.setQueueMonitoringFromQmgr(this.pcfQueueManager.getQueueMonitoringFromQmgr());		
@@ -459,7 +456,9 @@ public class MQConnection extends MQBase {
 	 * Update the queue manager listener metrics
 	 * 
 	 */
-	private void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
+	private void UpdateListenerMetrics() throws MQException, 
+		IOException, 
+		MQDataException {
 
 		this.pcfListener.UpdateListenerMetrics();
 		
@@ -480,10 +479,12 @@ public class MQConnection extends MQBase {
 	}
 
 	/*
-	 * Get queue metrics
+	 * Update queue metrics
 	 * 
 	 */
-	private void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
+	private void UpdateQueueMetrics() throws MQException, 
+		IOException, 
+		MQDataException {
 
 		this.pcfQueue.UpdateQueueMetrics();
 				
@@ -515,7 +516,7 @@ public class MQConnection extends MQBase {
     	
     	this.queManager = null;
 		this.messageAgent = null;
-
+		
     }
 	
         

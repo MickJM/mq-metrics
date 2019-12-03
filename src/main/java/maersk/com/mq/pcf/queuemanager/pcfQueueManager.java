@@ -35,6 +35,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.search.RequiredSearch;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQConnection;
 import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
@@ -49,10 +50,11 @@ public class pcfQueueManager extends MQBase {
 	private String queueManager;
 
     @Value("${ibm.mq.event.delayInMilliSeconds}")
-	private long resetIterations;
+	private int resetIterations;
 
     private PCFMessageAgent messageAgent = null;
     private Map<String,AtomicLong>mqReset = new HashMap<String, AtomicLong>();
+    private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
 
 	protected static final String cmdLookupStatus = MQPREFIX + "commandServerStatus";
 	protected static final String lookupStatus = MQPREFIX + "queueManagerStatus";
@@ -94,7 +96,7 @@ public class pcfQueueManager extends MQBase {
     }
 	
     /*
-     * Set the number of iterations that the metrics are collected
+     * Set the number of iterations for the metrics to be collected
      */
 	public void ResetIteration(String queueMan) {
 
@@ -102,7 +104,7 @@ public class pcfQueueManager extends MQBase {
 		meterRegistry.gauge(lookupReset, 
 				Tags.of("queueManagerName", queueMan)
 				,this.resetIterations);
-
+		
 	}
 	
 	/*

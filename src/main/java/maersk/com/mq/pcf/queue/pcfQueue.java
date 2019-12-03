@@ -104,7 +104,7 @@ public class pcfQueue extends MQBase {
 		// Delete all the metrics for this iteration ... this is the only way I can get working to delete
 		// ... old metric objects ...
 		
-		SetMetricsValue();
+		//SetMetricsValue();
 
 		/*
 		 * For each response, get the MQ details
@@ -166,6 +166,7 @@ public class pcfQueue extends MQBase {
 					
 					// Queue depth
 					if (this._debug) { log.info("pcfQueue: queue depth"); }
+					DeleteMetricEntry(lookupQueDepth);
 					meterRegistry.gauge(lookupQueDepth, 
 							Tags.of("queueManagerName", this.queueManager,
 									"queueName", queueName,
@@ -179,6 +180,7 @@ public class pcfQueue extends MQBase {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue input count"); }
 						// OpenInput count
+						DeleteMetricEntry(lookupOpenIn);
 						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);						
 						meterRegistry.gauge(lookupOpenIn, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -193,7 +195,8 @@ public class pcfQueue extends MQBase {
 					int openOutvalue = 0;
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue output count"); }
-					// Open output count
+						// Open output count
+						DeleteMetricEntry(lookupOpenOut);
 						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 						meterRegistry.gauge(lookupOpenOut, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -213,6 +216,7 @@ public class pcfQueue extends MQBase {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue depth"); }
 						// Maximum queue depth
+						DeleteMetricEntry(lookupMaxDepth);
 						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
 						meterRegistry.gauge(lookupMaxDepth, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -243,7 +247,7 @@ public class pcfQueue extends MQBase {
 					// 17/10/2019 Amened to correctly calcuate the epoch value			
 								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
 								long ld = dt.getTime();
-								
+								DeleteMetricEntry(lookupLastGetDateTime);
 								// Last Get date and time
 								meterRegistry.gauge(lookupLastGetDateTime, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -263,7 +267,7 @@ public class pcfQueue extends MQBase {
 					// 17/10/2019 Amened to correctly calcuate the epoch value				
 								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
 								long ld = dt.getTime();
-								
+								DeleteMetricEntry(lookupLastPutDateTime);
 								// Last put date and time
 								meterRegistry.gauge(lookupLastPutDateTime, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -277,6 +281,7 @@ public class pcfQueue extends MQBase {
 							
 							if (this._debug) { log.info("pcfQueue: inquire queue old-age"); }
 							// Oldest message age
+							DeleteMetricEntry(lookupOldMsgAge);
 							int old = pcfResStat[0].getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
 							meterRegistry.gauge(lookupOldMsgAge, 
 									Tags.of("queueManagerName", this.queueManager,
@@ -294,6 +299,7 @@ public class pcfQueue extends MQBase {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue de-queued"); }
 						// Messages DeQueued
+						DeleteMetricEntry(lookupdeQueued);
 						int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
 						meterRegistry.gauge(lookupdeQueued, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -309,6 +315,7 @@ public class pcfQueue extends MQBase {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue en-queued"); }
 						// Messages EnQueued
+						DeleteMetricEntry(lookupenQueued);
 						int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
 						meterRegistry.gauge(lookupenQueued, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -347,7 +354,7 @@ public class pcfQueue extends MQBase {
 					pcfMsg.getStringParameterValue(MQConstants.MQCACF_APPL_TAG).trim();			
 			String userId = 
 					pcfMsg.getStringParameterValue(MQConstants.MQCACF_USER_IDENTIFIER).trim();			
-
+			DeleteMetricEntry(lookupQueueProcesses);
 			meterRegistry.gauge(lookupQueueProcesses, 
 					Tags.of("queueManagerName", this.queueManager,
 							"cluster",cluster,
@@ -443,27 +450,27 @@ public class pcfQueue extends MQBase {
 	/*
 	 * Reset metrics
 	 */
-	public void resetMetric() {
-		SetMetricsValue();
-		
-	}
+	//public void resetMetric() {
+	//	SetMetricsValue();
+	//	
+	//}
 	
 	// If the queue manager is not running, set any listeners state not running
-	private void SetMetricsValue() {
+	//private void SetMetricsValue() {
 
-		DeleteMetricEntry(lookupQueDepth);
-		DeleteMetricEntry(lookupOpenIn);
-		DeleteMetricEntry(lookupOpenOut);
-		DeleteMetricEntry(lookupMaxDepth);
-		DeleteMetricEntry(lookupLastGetDateTime);
-		DeleteMetricEntry(lookupLastPutDateTime);
-		DeleteMetricEntry(lookupOldMsgAge);
-		DeleteMetricEntry(lookupdeQueued);
-		DeleteMetricEntry(lookupenQueued);
-		DeleteMetricEntry(lookupQueueProcesses);
+		//DeleteMetricEntry(lookupQueDepth);
+		//DeleteMetricEntry(lookupOpenIn);
+		//DeleteMetricEntry(lookupOpenOut);
+		//DeleteMetricEntry(lookupMaxDepth);
+		//DeleteMetricEntry(lookupLastGetDateTime);
+		//DeleteMetricEntry(lookupLastPutDateTime);
+		//DeleteMetricEntry(lookupOldMsgAge);
+		//DeleteMetricEntry(lookupdeQueued);
+		//DeleteMetricEntry(lookupenQueued);
+		//DeleteMetricEntry(lookupQueueProcesses);
 
 		
-	}
+	//}
 	
 
 }
