@@ -67,6 +67,9 @@ public class pcfQueue extends MQBase {
 	protected static final String lookupdeQueued = MQPREFIX + "deQueued";
 	protected static final String lookupenQueued = MQPREFIX + "enQueued";
 	protected static final String lookupQueueProcesses = MQPREFIX + "queueProcesses";
+	protected static final String lookupPutCount = MQPREFIX + "putCount";
+	protected static final String lookupPut1Count = MQPREFIX + "put1Count";
+	protected static final String lookupPutBytes = MQPREFIX + "putBytes";
 
     private PCFMessageAgent messageAgent;
     public void setMessageAgent(PCFMessageAgent agent) {
@@ -100,11 +103,6 @@ public class pcfQueue extends MQBase {
 			
 		}
 		if (this._debug) { log.info("pcfQueue: inquire queue response"); }
-
-		// Delete all the metrics for this iteration ... this is the only way I can get working to delete
-		// ... old metric objects ...
-		
-		//SetMetricsValue();
 
 		/*
 		 * For each response, get the MQ details
@@ -176,10 +174,10 @@ public class pcfQueue extends MQBase {
 									)
 							,value);
 
+					// OpenInput count
 					int openInvalue = 0;
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue input count"); }
-						// OpenInput count
 						DeleteMetricEntry(lookupOpenIn);
 						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);						
 						meterRegistry.gauge(lookupOpenIn, 
@@ -191,11 +189,11 @@ public class pcfQueue extends MQBase {
 										)
 								,openInvalue);
 					}
-					
+
+					// Open output count
 					int openOutvalue = 0;
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue output count"); }
-						// Open output count
 						DeleteMetricEntry(lookupOpenOut);
 						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 						meterRegistry.gauge(lookupOpenOut, 
@@ -213,9 +211,9 @@ public class pcfQueue extends MQBase {
 						ProcessQueueHandlers(queueName, queueCluster);
 					}
 
+					// Maximum queue depth
 					if (qType != MQConstants.MQQT_ALIAS) {
 						if (this._debug) { log.info("pcfQueue: inquire queue depth"); }
-						// Maximum queue depth
 						DeleteMetricEntry(lookupMaxDepth);
 						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
 						meterRegistry.gauge(lookupMaxDepth, 
@@ -327,6 +325,7 @@ public class pcfQueue extends MQBase {
 								,envalue);
 
 					}
+
 				}
 				
 			} catch (Exception e) {
@@ -446,31 +445,5 @@ public class pcfQueue extends MQBase {
 
 		return queueType;
 	}
-	
-	/*
-	 * Reset metrics
-	 */
-	//public void resetMetric() {
-	//	SetMetricsValue();
-	//	
-	//}
-	
-	// If the queue manager is not running, set any listeners state not running
-	//private void SetMetricsValue() {
-
-		//DeleteMetricEntry(lookupQueDepth);
-		//DeleteMetricEntry(lookupOpenIn);
-		//DeleteMetricEntry(lookupOpenOut);
-		//DeleteMetricEntry(lookupMaxDepth);
-		//DeleteMetricEntry(lookupLastGetDateTime);
-		//DeleteMetricEntry(lookupLastPutDateTime);
-		//DeleteMetricEntry(lookupOldMsgAge);
-		//DeleteMetricEntry(lookupdeQueued);
-		//DeleteMetricEntry(lookupenQueued);
-		//DeleteMetricEntry(lookupQueueProcesses);
-
-		
-	//}
-	
 
 }
