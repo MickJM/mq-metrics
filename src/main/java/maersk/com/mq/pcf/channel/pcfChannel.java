@@ -45,7 +45,13 @@ public class pcfChannel extends MQBase {
 	protected static final String lookupMsgRec = MQPREFIX + "messagesReceived";
 	protected static final String lookupBytesRec = MQPREFIX + "bytesReceived";
 	protected static final String lookupBytesSent = MQPREFIX + "bytesSent";
-	protected static final String lookupClientConnection = MQPREFIX + "clientConnections";
+	//protected static final String lookupClientConnection = MQPREFIX + "clientConnections";
+	
+    private Map<String,AtomicInteger>channelMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicLong>msgRecMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>msgBytesRecMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>msgBytesSentMap = new HashMap<String,AtomicLong>();
+   // private Map<String,AtomicInteger>msgConnsMap = new HashMap<String,AtomicInteger>();
 
 	private String queueManager;
 
@@ -69,6 +75,8 @@ public class pcfChannel extends MQBase {
 	
     private MQMetricSummary metricSummary;    
     private int metricSummaryCount = 0;
+
+	private int clearMetrics = 0;
     
     public pcfChannel(MQMetricSummary metricSummary) {
 
@@ -79,7 +87,6 @@ public class pcfChannel extends MQBase {
 		    	
 			} else {
 				if (this._debug) { log.info("MetricSummary does not exist ...."); }
-				
 			}
 			
 			if (this.metricSummary != null) {
@@ -97,10 +104,17 @@ public class pcfChannel extends MQBase {
      * Get the channel metrics
      */
 	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
-
-		resetMetric();
 		
 		if (this._debug) { log.info("pcfChannel: inquire on channel request"); }
+		
+		/*
+		 * Clear the metrics every 'x' iteration
+		 */
+		this.clearMetrics ++;
+		if (this.clearMetrics % 5 == 0) {
+			this.clearMetrics = 0;
+			resetMetrics();
+		}
 
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
@@ -159,6 +173,20 @@ public class pcfChannel extends MQBase {
 						//for (PCFMessage pcfMessage : pcfResp) {
 							
 						int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
+						AtomicInteger channels = channelMap.get(lookupChannel + "_" + this.queueManager);
+						if (channels == null) {
+							channelMap.put(lookupChannel + "_" + this.queueManager, meterRegistry.gauge(lookupChannel, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicInteger(channelStatus))
+									);
+						} else {
+							channels.set(channelStatus);
+						}
+						/*
 						meterRegistry.gauge(lookupChannel, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -166,10 +194,26 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,channelStatus);
-
+						*/
+						
 					} catch (PCFException pcfe) {
 						if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
 							if (this._debug) { log.info("pcfChannel: inquire channel status NOT FOUND"); }
+							AtomicInteger channels = channelMap.get(lookupChannel + "_" + this.queueManager);
+							if (channels == null) {
+								channelMap.put(lookupChannel + "_" + this.queueManager, meterRegistry.gauge(lookupChannel, 
+										Tags.of("queueManagerName", this.queueManager,
+												"channelType", channelType,
+												"channelName", channelName,
+												"cluster", channelCluster
+												),
+										new AtomicInteger(MQConstants.MQCHS_INACTIVE))
+										);
+							} else {
+								channels.set(MQConstants.MQCHS_INACTIVE);
+							}
+							
+							/*
 							meterRegistry.gauge(lookupChannel, 
 									Tags.of("queueManagerName", this.queueManager,
 											"channelType", channelType,
@@ -177,10 +221,26 @@ public class pcfChannel extends MQBase {
 											"cluster", channelCluster
 											)
 									,MQConstants.MQCHS_INACTIVE);
+							*/
 						}
 						
 					} catch (Exception e) {
 						if (this._debug) { log.info("pcfChannel: inquire channel status exception: " + e.getMessage()); }
+						AtomicInteger channels = channelMap.get(lookupChannel + "_" + this.queueManager);
+						if (channels == null) {
+							channelMap.put(lookupChannel + "_" + this.queueManager, meterRegistry.gauge(lookupChannel, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicInteger(MQConstants.MQCHS_INACTIVE))
+									);
+						} else {
+							channels.set(MQConstants.MQCHS_INACTIVE);
+						}
+						
+						/*
 						meterRegistry.gauge(lookupChannel, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -188,6 +248,7 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,MQConstants.MQCHS_INACTIVE);
+						*/
 
 					}
 	
@@ -205,6 +266,21 @@ public class pcfChannel extends MQBase {
 							msgsOverChannels += msgs;
 						}
 						if (this._debug) { log.info("pcfChannel: channel count: " + msgsOverChannels); }
+						AtomicLong msgRec = msgRecMap.get(lookupMsgRec + "_" + this.queueManager);
+						if (msgRec == null) {
+							msgRecMap.put(lookupMsgRec + "_" + this.queueManager, meterRegistry.gauge(lookupMsgRec, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(msgsOverChannels))
+									);
+						} else {
+							msgRec.set(msgsOverChannels);
+						}
+
+						/*
 						meterRegistry.gauge(lookupMsgRec, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -212,7 +288,8 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,msgsOverChannels);
-	
+						*/
+						
 						if (this.metricSummary != null) {
 							this.metricSummary.UpdateCounts(channelName
 									, channelType
@@ -223,6 +300,21 @@ public class pcfChannel extends MQBase {
 						
 					} catch (Exception e) {
 						if (this._debug) { log.info("pcfChannel: inquire channel status exception (1): " + e.getMessage()); }
+						AtomicLong msgRec = msgRecMap.get(lookupMsgRec + "_" + this.queueManager);
+						if (msgRec == null) {
+							msgRecMap.put(lookupMsgRec + "_" + this.queueManager, meterRegistry.gauge(lookupMsgRec, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(msgsOverChannels))
+									);
+						} else {
+							msgRec.set(msgsOverChannels);
+						}
+
+						/*
 						meterRegistry.gauge(lookupMsgRec, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -230,6 +322,7 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,msgsOverChannels);
+						*/
 						
 						// If the metric summary is required, then updates the counts
 						if (this.summaryRequired) {
@@ -252,7 +345,21 @@ public class pcfChannel extends MQBase {
 								bytes = bytes * -1;
 							}
 							bytesReceviedOverChannels += bytes;
-						}	
+						}
+						AtomicLong msgBytesRec = msgBytesRecMap.get(lookupBytesRec + "_" + this.queueManager);
+						if (msgBytesRec == null) {
+							msgBytesRecMap.put(lookupBytesRec + "_" + this.queueManager, meterRegistry.gauge(lookupBytesRec, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(bytesReceviedOverChannels))
+									);
+						} else {
+							msgBytesRec.set(msgsOverChannels);
+						}
+						/*
 						meterRegistry.gauge(lookupBytesRec, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -260,8 +367,24 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,bytesReceviedOverChannels);
-
+						*/
+						
 					} catch (Exception e) {
+						AtomicLong msgBytesRec = msgBytesRecMap.get(lookupBytesRec + "_" + this.queueManager);
+						if (msgBytesRec == null) {
+							msgBytesRecMap.put(lookupBytesRec + "_" + this.queueManager, meterRegistry.gauge(lookupBytesRec, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(bytesReceviedOverChannels))
+									);
+						} else {
+							msgBytesRec.set(msgsOverChannels);
+						}
+						
+						/*
 						meterRegistry.gauge(lookupBytesRec, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -269,7 +392,7 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,MQPCFConstants.PCF_INIT_VALUE);
-						
+						*/
 					}
 	
 					try {
@@ -281,6 +404,21 @@ public class pcfChannel extends MQBase {
 							}
 							bytesSentOverChannels += bytes;
 						}
+						AtomicLong msgBytesSent = msgBytesSentMap.get(lookupBytesSent + "_" + this.queueManager);
+						if (msgBytesSent == null) {
+							msgBytesSentMap.put(lookupBytesSent + "_" + this.queueManager, meterRegistry.gauge(lookupBytesSent, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(bytesSentOverChannels))
+									);
+						} else {
+							msgBytesSent.set(bytesSentOverChannels);
+						}
+						
+						/*
 						meterRegistry.gauge(lookupBytesSent, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -288,8 +426,23 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,bytesSentOverChannels);
-
+						*/
 					} catch (Exception e) {
+						AtomicLong msgBytesSent = msgBytesSentMap.get(lookupBytesSent + "_" + this.queueManager);
+						if (msgBytesSent == null) {
+							msgBytesSentMap.put(lookupBytesSent + "_" + this.queueManager, meterRegistry.gauge(lookupBytesSent, 
+									Tags.of("queueManagerName", this.queueManager,
+											"channelType", channelType,
+											"channelName", channelName,
+											"cluster", channelCluster
+											),
+									new AtomicLong(bytesSentOverChannels))
+									);
+						} else {
+							msgBytesSent.set(bytesSentOverChannels);
+						}
+
+						/*
 						meterRegistry.gauge(lookupBytesSent, 
 								Tags.of("queueManagerName", this.queueManager,
 										"channelType", channelType,
@@ -297,7 +450,7 @@ public class pcfChannel extends MQBase {
 										"cluster", channelCluster
 										)
 								,MQPCFConstants.PCF_INIT_VALUE);
-						
+						*/
 					}			
 				}
 			}
@@ -414,13 +567,26 @@ public class pcfChannel extends MQBase {
 	}
 
 	/*
+	 * Allow access to delete the metrics
+	 */
+	public void resetMetrics() {
+		if (this._debug) { log.debug("pcfChannel: resetting metrics"); }
+		deleteMetrics();
+	}	
+	/*
 	 * Reset the metrics
 	 */
-	public void resetMetric() {
+	private void deleteMetrics() {
 		DeleteMetricEntry(lookupChannel);
 		DeleteMetricEntry(lookupMsgRec);
 		DeleteMetricEntry(lookupBytesRec);
 		DeleteMetricEntry(lookupBytesSent);
+		
+	    this.channelMap.clear();
+	    this.msgRecMap.clear();
+	    this.msgBytesRecMap.clear();
+	    this.msgBytesSentMap.clear();
+
 		
 	}
     

@@ -6,7 +6,7 @@ ibm:
     channel1: MQ.TLS.SVRCONN
     channel2: MQ.MONITOR.PCF
     connName1: localhost(1442)
-    multiInstance: false
+    multiInstance: true
     queueManager: QMAP01
     channel: MQ.TLS.SVRCONN
     connName: localhost(1442)
@@ -15,6 +15,7 @@ ibm:
     user: MQMon01
     password: 
     local: false
+    keepMetricsWhenQueueManagerIsDown: true
     objects:
       queues:
         include: "*"

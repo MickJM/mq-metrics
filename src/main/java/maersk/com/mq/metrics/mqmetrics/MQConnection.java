@@ -101,9 +101,13 @@ public class MQConnection extends MQBase {
 	private String password;
 	@Value("${ibm.mq.sslCipherSpec}")
 	private String cipher;
+	
 	@Value("${ibm.mq.local:false}")
 	private boolean local;
 
+	@Value("${ibm.mq.keepMetricsWhenQueueManagerIsDown:false}")
+	private boolean keepMetricsWhenQueueManagerIsDown;
+	
 	//
 	@Value("${ibm.mq.useSSL}")
 	private boolean bUseSSL;
@@ -245,81 +249,92 @@ public class MQConnection extends MQBase {
 	 */
 	private void CreateQueueManagerConnection() throws MQException, MQDataException {
 		
-		GetEnvironmentVariables();
+		Hashtable<String, Comparable> env = null;
 		
-		Hashtable<String, Comparable> env = new Hashtable<String, Comparable>();
-		env.put(MQConstants.HOST_NAME_PROPERTY, this.hostName);
-		env.put(MQConstants.CHANNEL_PROPERTY, this.channel);
-		env.put(MQConstants.PORT_PROPERTY, this.port);
-		
-		/*
-		 * 
-		 * If a username and password is provided, then use it
-		 * ... if CHCKCLNT is set to OPTIONAL or RECDADM
-		 * ... RECDADM will use the username and password if provided ... if a password is not provided
-		 * ...... then the connection is used like OPTIONAL
-		 */
-		
-		if (!StringUtils.isEmpty(this.userId)) {
-			env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
-		}
-		if (!StringUtils.isEmpty(this.password)) {
-			env.put(MQConstants.PASSWORD_PROPERTY, this.password);
-		}
-		env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
+		if (!this.local) { 
+			GetEnvironmentVariables();
+			log.info("Attempting to connect using a client connection");
 
-		if (this.multiInstance) {
-			if (this.onceOnly) {
-				log.info("MQ Metrics is running in multiInstance mode");
+			env = new Hashtable<String, Comparable>();
+			env.put(MQConstants.HOST_NAME_PROPERTY, this.hostName);
+			env.put(MQConstants.CHANNEL_PROPERTY, this.channel);
+			env.put(MQConstants.PORT_PROPERTY, this.port);
+			
+			/*
+			 * 
+			 * If a username and password is provided, then use it
+			 * ... if CHCKCLNT is set to OPTIONAL or RECDADM
+			 * ... RECDADM will use the username and password if provided ... if a password is not provided
+			 * ...... then the connection is used like OPTIONAL
+			 */
+			
+			if (!StringUtils.isEmpty(this.userId)) {
+				env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
 			}
-		}
-		
-		if (this._debug) {
-			log.info("Host		: " + this.hostName);
-			log.info("Channel	: " + this.channel);
-			log.info("Port		: " + this.port);
-			log.info("Queue Man	: " + this.queueManager);
-			log.info("User		: " + this.userId);
-			log.info("Password	: **********");
+			if (!StringUtils.isEmpty(this.password)) {
+				env.put(MQConstants.PASSWORD_PROPERTY, this.password);
+			}
+			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
+	
+			if (this.multiInstance) {
+				if (this.onceOnly) {
+					log.info("MQ Metrics is running in multiInstance mode");
+				}
+			}
+			
+			if (this._debug) {
+				log.info("Host		: " + this.hostName);
+				log.info("Channel	: " + this.channel);
+				log.info("Port		: " + this.port);
+				log.info("Queue Man	: " + this.queueManager);
+				log.info("User		: " + this.userId);
+				log.info("Password	: **********");
+				if (this.bUseSSL) {
+					log.info("SSL is enabled ....");
+				}
+			}
+			
+			// If SSL is enabled (default)
 			if (this.bUseSSL) {
-				log.info("SSL is enabled ....");
+				if (!StringUtils.isEmpty(this.truststore)) {
+					System.setProperty("javax.net.ssl.trustStore", this.truststore);
+			        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
+			        System.setProperty("javax.net.ssl.trustStoreType","JKS");
+			        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
+				}
+				if (!StringUtils.isEmpty(this.keystore)) {
+			        System.setProperty("javax.net.ssl.keyStore", this.keystore);
+			        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
+			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
+				}
+				if (!StringUtils.isEmpty(this.cipher)) {
+					env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher); 
+				}
+			
+			} else {
+				if (this._debug) {
+					log.info("SSL is NOT enabled ....");
+				}
 			}
-		}
-		
-		// If SSL is enabled (default)
-		if (this.bUseSSL) {
-			if (!StringUtils.isEmpty(this.truststore)) {
-				System.setProperty("javax.net.ssl.trustStore", this.truststore);
-		        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
-		        System.setProperty("javax.net.ssl.trustStoreType","JKS");
-		        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
+			
+	        //System.setProperty("javax.net.debug","all");
+			if (this._debug) {
+				if (!StringUtils.isEmpty(this.truststore)) {
+					log.info("TrustStore       : " + this.truststore);
+					log.info("TrustStore Pass  : ********");
+				}
+				if (!StringUtils.isEmpty(this.keystore)) {
+					log.info("KeyStore         : " + this.keystore);
+					log.info("KeyStore Pass    : ********");
+					log.info("Cipher Suite     : " + this.cipher);
+				}
 			}
-			if (!StringUtils.isEmpty(this.keystore)) {
-		        System.setProperty("javax.net.ssl.keyStore", this.keystore);
-		        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
-		        System.setProperty("javax.net.ssl.keyStoreType","JKS");
-			}
-			if (!StringUtils.isEmpty(this.cipher)) {
-				env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher); 
-			}
-		
 		} else {
 			if (this._debug) {
-				log.info("SSL is NOT enabled ....");
+				log.info("Attemping to connect using local bindings");
+				log.info("Queue Man	: " + this.queueManager);
 			}
-		}
-		
-        //System.setProperty("javax.net.debug","all");
-		if (this._debug) {
-			if (!StringUtils.isEmpty(this.truststore)) {
-				log.info("TrustStore       : " + this.truststore);
-				log.info("TrustStore Pass  : ********");
-			}
-			if (!StringUtils.isEmpty(this.keystore)) {
-				log.info("KeyStore         : " + this.keystore);
-				log.info("KeyStore Pass    : ********");
-				log.info("Cipher Suite     : " + this.cipher);
-			}
+			
 		}
 		
 		if (this.onceOnly) {
@@ -327,9 +342,15 @@ public class MQConnection extends MQBase {
 			this.onceOnly = false;
 		}
 		
+		/*
+		 * Connect to the queue manager 
+		 * ... local connection : application connection in local bindings
+		 * ... client connection: application connection in client mode 
+		 */
 		if (this.queManager == null) {
 			if (this.local) {
 				this.queManager = new MQQueueManager(this.queueManager);
+				log.info("Local connection established ");
 			} else {
 				this.queManager = new MQQueueManager(this.queueManager, env);
 			}
@@ -339,6 +360,9 @@ public class MQConnection extends MQBase {
 			log.info("Connection to queue manager is already established ");
 		}
 
+		/*
+		 * Establish a PCF agent
+		 */
 		log.info("Creating PCFAgent ");
 		if (this.messageAgent == null) {
 			this.messageAgent = new PCFMessageAgent(queManager);
@@ -377,10 +401,12 @@ public class MQConnection extends MQBase {
 			
 		}
 
-		//
+		/*
+		 * If we dont have a user or a certs are not being used, then we cant connect ... unless we are in local bindings
+		 */
 		if (this.userId.equals("")) {
 			if (this.bUseSSL == false) {
-				log.error("Unable to connect to queue manager, credentials are missing and certificates is false");
+				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
 				System.exit(1);
 			}
 		}
@@ -389,7 +415,10 @@ public class MQConnection extends MQBase {
 		if (this.userId == null) {
 			return;
 		}
-		
+
+		/*
+		 * dont allow mqm user
+		 */
 		if (!this.userId.equals("")) {
 			if ((this.userId.equals("mqm") || (this.userId.equals("MQM")))) {
 				log.error("The MQ channel USERID must not be running as 'mqm' ");
@@ -410,11 +439,24 @@ public class MQConnection extends MQBase {
 		if (this.pcfQueueManager != null) {
 			this.pcfQueueManager.NotRunning(this.queueManager, this.multiInstance, status);
 		}
-		if (this.pcfListener != null) {
-			this.pcfListener.resetMetric();
-		}
-		if (this.pcfChannel != null) {
-			this.pcfChannel.resetMetric();			
+
+		/*
+		 * Clear the metrics, but ...
+		 * ... dont clear them if the queue manager is down 
+		 */
+		if (!keepMetricsWhenQueueManagerIsDown) {
+			if (this.pcfListener != null) {
+				this.pcfListener.resetMetrics();
+			}
+			if (this.pcfChannel != null) {
+				this.pcfChannel.resetMetrics();
+			}
+			if (this.pcfChannel != null) {
+				this.pcfChannel.resetMetrics();			
+			}
+			if (this.pcfQueue != null) {
+				this.pcfQueue.resetMetrics();			
+			}
 		}
 	}
 

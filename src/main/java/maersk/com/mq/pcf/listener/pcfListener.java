@@ -67,6 +67,7 @@ public class pcfListener extends MQBase {
     private Map<String,AtomicInteger>listenerStatusMap = new HashMap<String, AtomicInteger>();
     
 	protected static final String lookupListener = MQPREFIX + "listenerStatus";
+    private Map<String,AtomicInteger>listenerMap = new HashMap<String,AtomicInteger>();
 
     // Listeners ...
 	@Value("${ibm.mq.objects.listeners.exclude}")
@@ -78,6 +79,8 @@ public class pcfListener extends MQBase {
     private String[] excludeTypes;
 	@Value("${ibm.mq.objects.listeners.types.include}")
     private String[] includeTypes;
+
+	private int clearMetrics = 0;
 
 	// Constructor
     public pcfListener() {
@@ -91,8 +94,15 @@ public class pcfListener extends MQBase {
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 
 		if (this._debug) { log.info("pcfListener: inquire listener request"); }
-
-		resetMetric();
+		
+		/*
+		 * Clear the metrics every 'x' iteration
+		 */
+		this.clearMetrics++;
+		if (this.clearMetrics % 5 == 0) {
+			this.clearMetrics = 0;
+			resetMetrics();
+		}
 		
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER);
 		pcfRequest.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
@@ -137,42 +147,97 @@ public class pcfListener extends MQBase {
 							int listenerStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS);					
 							portNumber = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_PORT);
 							type = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
+
+							AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
+							if (qmListener == null) {
+								listenerMap.put(lookupListener + "_" + this.queueManager, meterRegistry.gauge(lookupListener, 
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber)),
+										new AtomicInteger(listenerStatus))
+										);
+							} else {
+								qmListener.set(listenerStatus);
+							}
+
+							/*
 							meterRegistry.gauge(lookupListener, 
 									Tags.of("queueManagerName", this.queueManager,
 											"listenerName", listenerName,
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
 									,listenerStatus);
-							
+							*/
 						} catch (PCFException pcfe) {
 							if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
+								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
+								if (qmListener == null) {
+									listenerMap.put(lookupListener + "_" + this.queueManager, meterRegistry.gauge(lookupListener, 
+											Tags.of("queueManagerName", this.queueManager,
+													"listenerName", listenerName,
+													"type", Integer.toString(type),
+													"port", Integer.toString(portNumber)),
+											new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+											);
+								} else {
+									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
+								}
+								/*
 								meterRegistry.gauge(lookupListener, 
 										Tags.of("queueManagerName", this.queueManager,
 												"listenerName", listenerName,
 												"type", Integer.toString(type),
 												"port", Integer.toString(portNumber))
 										,MQPCFConstants.PCF_INIT_VALUE);
-								
+								*/
 							}
 							if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {								
+								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
+								if (qmListener == null) {
+									listenerMap.put(lookupListener + "_" + this.queueManager, meterRegistry.gauge(lookupListener, 
+											Tags.of("queueManagerName", this.queueManager,
+													"listenerName", listenerName,
+													"type", Integer.toString(type),
+													"port", Integer.toString(portNumber)),
+											new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+											);
+								} else {
+									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
+								}
+								/*
 								meterRegistry.gauge(lookupListener, 
 										Tags.of("queueManagerName", this.queueManager,
 												"listenerName", listenerName,
 												"type", Integer.toString(type),
 												"port", Integer.toString(portNumber))
 										,MQPCFConstants.PCF_INIT_VALUE);
-								
+								*/
 							}
 	
 							
 						} catch (Exception e) {
+							AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
+							if (qmListener == null) {
+								listenerMap.put(lookupListener + "_" + this.queueManager, meterRegistry.gauge(lookupListener, 
+										Tags.of("queueManagerName", this.queueManager,
+												"listenerName", listenerName,
+												"type", Integer.toString(type),
+												"port", Integer.toString(portNumber)),
+										new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+										);
+							} else {
+								qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
+							}
+
+							/*
 							meterRegistry.gauge(lookupListener, 
 									Tags.of("queueManagerName", this.queueManager,
 											"listenerName", listenerName,
 											"type", Integer.toString(type),
 											"port", Integer.toString(portNumber))
 									,MQPCFConstants.PCF_INIT_VALUE);
-
+							*/
 						}				
 					}
 				}
@@ -244,10 +309,20 @@ public class pcfListener extends MQBase {
 
 	}
 
-
-	public void resetMetric() {
+	/*
+	 * Allow access to delete the metrics
+	 */
+	public void resetMetrics() {
+		if (this._debug) { log.debug("pcfListener: resetting metrics"); }
+		deleteMetrics();
+	}
+	
+	/*
+	 * Delete metrics
+	 */
+	private void deleteMetrics() {
 		DeleteMetricEntry(lookupListener);
-
+		this.listenerMap.clear();
 	}	
 	
 }
