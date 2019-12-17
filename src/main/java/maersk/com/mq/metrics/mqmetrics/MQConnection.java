@@ -109,7 +109,7 @@ public class MQConnection extends MQBase {
 	private boolean keepMetricsWhenQueueManagerIsDown;
 	
 	//
-	@Value("${ibm.mq.useSSL}")
+	@Value("${ibm.mq.useSSL:false}")
 	private boolean bUseSSL;
 	
 	@Value("${ibm.mq.security.truststore}")
