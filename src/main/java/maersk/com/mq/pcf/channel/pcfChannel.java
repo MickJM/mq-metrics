@@ -76,7 +76,7 @@ public class pcfChannel extends MQBase {
     private MQMetricSummary metricSummary;    
     private int metricSummaryCount = 0;
 
-	private int clearMetrics = 0;
+	//private int clearMetrics = 0;
     
     public pcfChannel(MQMetricSummary metricSummary) {
 
@@ -103,7 +103,7 @@ public class pcfChannel extends MQBase {
     /*
      * Get the channel metrics
      */
-	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
+	public void updateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
 		
 		if (this._debug) { log.info("pcfChannel: inquire on channel request"); }
 		
@@ -111,8 +111,11 @@ public class pcfChannel extends MQBase {
 		 * Clear the metrics every 'x' iteration
 		 */
 		this.clearMetrics ++;
-		if (this.clearMetrics % 5 == 0) {
+		if (this.clearMetrics % CONST_clearMetrics == 0) {
 			this.clearMetrics = 0;
+			if (this._debug) {
+				log.debug("Clearing channel metrics");
+			}
 			resetMetrics();
 		}
 

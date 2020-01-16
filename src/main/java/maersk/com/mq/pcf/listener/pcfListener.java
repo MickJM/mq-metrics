@@ -80,7 +80,7 @@ public class pcfListener extends MQBase {
 	@Value("${ibm.mq.objects.listeners.types.include}")
     private String[] includeTypes;
 
-	private int clearMetrics = 0;
+	//private int clearMetrics = 0;
 
 	// Constructor
     public pcfListener() {
@@ -99,8 +99,11 @@ public class pcfListener extends MQBase {
 		 * Clear the metrics every 'x' iteration
 		 */
 		this.clearMetrics++;
-		if (this.clearMetrics % 5 == 0) {
+		if (this.clearMetrics % CONST_clearMetrics == 0) {
 			this.clearMetrics = 0;
+			if (this._debug) {
+				log.debug("Clearing listener metrics");
+			}
 			resetMetrics();
 		}
 		

@@ -85,7 +85,7 @@ public class pcfQueue extends MQBase {
 
     private PCFMessageAgent messageAgent;
 
-	private int clearMetrics = 0;
+	//private int clearMetrics = 0;
 
 	public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
@@ -99,7 +99,7 @@ public class pcfQueue extends MQBase {
     /*
      * Get the metrics for each queue that we want
      */
-	public void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
+	public void updateQueueMetrics() throws MQException, IOException, MQDataException {
 
 		if (this._debug) { log.info("pcfQueue: inquire queue request"); }
 
@@ -107,8 +107,11 @@ public class pcfQueue extends MQBase {
 		 * Clear the metrics every 'x' iteration
 		 */
 		this.clearMetrics++;
-		if (this.clearMetrics % 5 == 0) {
+		if (this.clearMetrics % CONST_clearMetrics == 0) {
 			this.clearMetrics = 0;
+			if (this._debug) {
+				log.debug("Clearing queue metrics");
+			}
 			resetMetrics();
 		}
 		

@@ -58,6 +58,7 @@ runmqakm -cert -create -label ibmwebspheremqqmap01 -stashed -expire 730 -size 20
 runmqakm -cert -details -db key.kdb -stashed -label caroot
 runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremq{queue manager name}
 runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremqaceq01
+runmqakm -cert -details -db key.kdb -stashed -label ibmwebspheremqqmap01
 
 5) extract cert
 runmqakm -cert -extract -db key.kdb -stashed -label ibmwebspheremqaceq01 -target aceq01.arm -format ascii
@@ -71,6 +72,7 @@ keytool -genkey -alias ibmwebspheremq{user} -keyalg RSA -sigalg SHA256withRSA -d
 
 7) list certs
 keytool -keystore {queue manager name}jks.jks -storepass Passw0rd -list 
+keytool -keystore qmap01jks.jks -storepass Passw0rd -list 
 
 8) export the public key
 keytool -export -keystore {queue manager name}jks.jks -storepass Passw0rd -alias ibmwebspheremq{user} -file {queue manager name}jks.arm -rfc

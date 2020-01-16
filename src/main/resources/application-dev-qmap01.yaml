@@ -6,16 +6,18 @@ ibm:
     channel1: MQ.TLS.SVRCONN
     channel2: MQ.MONITOR.PCF
     connName1: localhost(1442)
-    multiInstance: true
+    multiInstance: false
     queueManager: QMAP01
-    channel: MQ.TLS.SVRCONN
-    connName: localhost(1442)
-    sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
+    channel: ADMIN.TLS.SVRCONN
+    connName: localhost(1480)
+    sslCipherSpec1: TLS_RSA_WITH_AES_256_CBC_SHA256
+    sslCipherSpec: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
     useSSL: true
     user: MQMon01
-    password: 
+    password: Passw0rd
     local: false
     keepMetricsWhenQueueManagerIsDown: true
+    clearMetrics: 5    
     objects:
       queues:
         include: "*"

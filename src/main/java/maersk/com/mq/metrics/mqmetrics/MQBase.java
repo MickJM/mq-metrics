@@ -21,7 +21,11 @@ public class MQBase {
 	@Value("${application.debug:false}")
     protected boolean _debug;
 
+	@Value("${ibm.mq.clearMetrics:10}")
+	protected int CONST_clearMetrics;
 
+	protected int clearMetrics;
+	
 	public interface MQPCFConstants {
 		
 		public int BASE = 0;
