@@ -31,6 +31,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 
 @Component
 public class pcfListener extends MQBase {
@@ -80,29 +81,28 @@ public class pcfListener extends MQBase {
 	@Value("${ibm.mq.objects.listeners.types.include}")
     private String[] includeTypes;
 
-	//private int clearMetrics = 0;
-
 	// Constructor
     public pcfListener() {
+		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("pcfListener: Object created"); }
     	setTypeList();
     }
 
     /*
-     * Get the listeners ...
-     * 
+     * Get the listeners ...     * 
      */
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 
-		if (this._debug) { log.info("pcfListener: inquire listener request"); }
+		if (getDebugLevel() == LEVEL.DEBUG
+				|| (getDebugLevel() == LEVEL.TRACE))  { log.info("pcfListener: inquire listener request"); }
 		
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
 		this.clearMetrics++;
-		if (this.clearMetrics % CONST_clearMetrics == 0) {
+		if (this.clearMetrics % CONST_CLEARMETRICS == 0) {
 			this.clearMetrics = 0;
-			if (this._debug) {
-				log.debug("Clearing listener metrics");
+			if (getDebugLevel() == LEVEL.TRACE) {
+				log.trace("Clearing listener metrics");
 			}
 			resetMetrics();
 		}
@@ -117,14 +117,13 @@ public class pcfListener extends MQBase {
 			pcfResponse = this.messageAgent.send(pcfRequest);
 
 		} catch (Exception e) {
-			if (this._debug) { log.warn("pcfListener: no response returned - " + e.getMessage()); }
+			if (getDebugLevel() == LEVEL.WARN) { log.warn("pcfListener: no response returned - " + e.getMessage()); }
 			
 		}
-		if (this._debug) { log.info("pcfListener: inquire listener response"); }
-        
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfListener: inquire listener response"); }
         int[] pcfStatAttrs = { 	MQConstants.MQIACF_ALL };
+        
 		// For each response back, loop to process 
-		
         try {
 	        for (PCFMessage pcfMsg : pcfResponse) {	
 				int portNumber = MQPCFConstants.BASE;
@@ -138,7 +137,7 @@ public class pcfListener extends MQBase {
 					
 					// Correct listener type ? Only interested in TCP
 					if (checkType(typeName)) {
-						if (this._debug) { log.info("pcfListener: valid type"); }
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfListener: valid type"); }
 	
 						PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER_STATUS);
 						pcfReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, listenerName);
@@ -164,14 +163,6 @@ public class pcfListener extends MQBase {
 								qmListener.set(listenerStatus);
 							}
 
-							/*
-							meterRegistry.gauge(lookupListener, 
-									Tags.of("queueManagerName", this.queueManager,
-											"listenerName", listenerName,
-											"type", Integer.toString(type),
-											"port", Integer.toString(portNumber))
-									,listenerStatus);
-							*/
 						} catch (PCFException pcfe) {
 							if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
 								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
@@ -186,14 +177,6 @@ public class pcfListener extends MQBase {
 								} else {
 									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
 								}
-								/*
-								meterRegistry.gauge(lookupListener, 
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type", Integer.toString(type),
-												"port", Integer.toString(portNumber))
-										,MQPCFConstants.PCF_INIT_VALUE);
-								*/
 							}
 							if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {								
 								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + this.queueManager);
@@ -208,14 +191,6 @@ public class pcfListener extends MQBase {
 								} else {
 									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
 								}
-								/*
-								meterRegistry.gauge(lookupListener, 
-										Tags.of("queueManagerName", this.queueManager,
-												"listenerName", listenerName,
-												"type", Integer.toString(type),
-												"port", Integer.toString(portNumber))
-										,MQPCFConstants.PCF_INIT_VALUE);
-								*/
 							}
 	
 							
@@ -232,21 +207,12 @@ public class pcfListener extends MQBase {
 							} else {
 								qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
 							}
-
-							/*
-							meterRegistry.gauge(lookupListener, 
-									Tags.of("queueManagerName", this.queueManager,
-											"listenerName", listenerName,
-											"type", Integer.toString(type),
-											"port", Integer.toString(portNumber))
-									,MQPCFConstants.PCF_INIT_VALUE);
-							*/
 						}				
 					}
 				}
 	        }
 		} catch (Exception e) {
-			if (this._debug) { log.warn("pcfListener: unable to get listener metrcis " + e.getMessage()); }
+			if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfListener: unable to get listener metrcis " + e.getMessage()); }
 			
 		}
 	}
@@ -316,7 +282,7 @@ public class pcfListener extends MQBase {
 	 * Allow access to delete the metrics
 	 */
 	public void resetMetrics() {
-		if (this._debug) { log.debug("pcfListener: resetting metrics"); }
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfListener: resetting metrics"); }
 		deleteMetrics();
 	}
 	
@@ -324,7 +290,7 @@ public class pcfListener extends MQBase {
 	 * Delete metrics
 	 */
 	private void deleteMetrics() {
-		DeleteMetricEntry(lookupListener);
+		deleteMetricEntry(lookupListener);
 		this.listenerMap.clear();
 	}	
 	

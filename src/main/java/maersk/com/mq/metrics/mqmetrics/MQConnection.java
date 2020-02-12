@@ -66,6 +66,7 @@ import io.prometheus.client.CollectorRegistry;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 //import maersk.com.mq.metricsummary.Channels;
 //import maersk.com.mq.metricsummary.Channel;
 import maersk.com.mq.metricsummary.MQMetricSummary;
@@ -75,6 +76,9 @@ import maersk.com.mq.pcf.channel.pcfChannel;
 public class MQConnection extends MQBase {
 
     static Logger log = Logger.getLogger(MQConnection.class);
+
+	@Value("${application.save.metrics.required:false}")
+    private boolean summaryRequired;
 
 	//
 	private boolean onceOnly = true;
@@ -131,7 +135,7 @@ public class MQConnection extends MQBase {
     private PCFMessageAgent messageAgent = null;
     private PCFAgent agent = null;
     
-    //
+    // MAP details for the metrics
     private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
 	protected static final String runMode = MQPREFIX + "runMode";
 
@@ -145,7 +149,9 @@ public class MQConnection extends MQBase {
     @Autowired
     public pcfChannel pcfChannel;
     
-    public MQMetricSummary metricSummary;    
+    public MQMetricSummary metricSummary;
+
+
 
     @Bean
     public pcfQueueManager QueueManager() {
@@ -178,7 +184,14 @@ public class MQConnection extends MQBase {
 	private MQConnection() {
 	}
 	
-
+	@PostConstruct
+	public void setProperties() {
+		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("MQConnection: Object created"); }
+		System.out.println("POST CONSTRUCT Summary: " + this.summaryRequired);
+		setDebugLevel();
+		this.pcfChannel.loadProperties(this.summaryRequired);
+	}
+	
 	/*
 	 * Every 'x' seconds, start the processing to get the MQ metrics
 	 */
@@ -196,22 +209,33 @@ public class MQConnection extends MQBase {
 				updateChannelMetrics();
 				
 			} else {
-				if (this._debug) { log.error("No MQ queue manager object"); }
+				if (!(getDebugLevel() == LEVEL.NONE)) { log.error("No MQ queue manager object"); }
 				createQueueManagerConnection();
 				setPCFParameters();
 
 			}
 			
 		} catch (PCFException p) {
-			if (!this.multiInstance) {
+			if (getDebugLevel() == LEVEL.WARN
+					|| getDebugLevel() == LEVEL.TRACE 
+					|| getDebugLevel() == LEVEL.ERROR
+					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("PCFException " + p.getMessage());
 			}
-			log.debug("PCFException: ReasonCode " + p.getReason());
+			if (getDebugLevel() == LEVEL.WARN
+				|| getDebugLevel() == LEVEL.TRACE 
+				|| getDebugLevel() == LEVEL.ERROR
+				|| getDebugLevel() == LEVEL.DEBUG) { 
+					log.warn("PCFException: ReasonCode " + p.getReason());
+			}
 			closeQMConnection();
 			queueManagerIsNotRunning(p.getReason());
 			
 		} catch (MQException m) {
-			if (!this.multiInstance) {
+			if (getDebugLevel() == LEVEL.WARN
+					|| getDebugLevel() == LEVEL.TRACE 
+					|| getDebugLevel() == LEVEL.ERROR
+					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("MQException " + m.getMessage());
 			}
 			closeQMConnection();
@@ -219,27 +243,51 @@ public class MQConnection extends MQBase {
 			this.messageAgent = null;
 			
 		} catch (IOException i) {
-			if (!this.multiInstance) {
+			if (getDebugLevel() == LEVEL.WARN
+					|| getDebugLevel() == LEVEL.TRACE 
+					|| getDebugLevel() == LEVEL.ERROR
+					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("IOException " + i.getMessage());
 			}
 			closeQMConnection();
-			queueManagerIsNotRunning(0);
+			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 			
 		} catch (Exception e) {
-			if (!this.multiInstance) {
+			if (getDebugLevel() == LEVEL.WARN
+					|| getDebugLevel() == LEVEL.TRACE 
+					|| getDebugLevel() == LEVEL.ERROR
+					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("Exception " + e.getMessage());
 			}
 			closeQMConnection();
-			queueManagerIsNotRunning(0);
+			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 		}
     }
     
+	/*
+	 * Set debug level
+	 */
+	private void setDebugLevel() {
+		if (this._debug) {
+			this._debugLevel = "DEBUG";
+		}
+		
+		setDebugLevel(this._debugLevel);
+		
+	}
+	
+	
 	// Set the MQ Objects parameters
 	private void setPCFParameters() {
-		this.pcfQueueManager.setMessageAgent(this.messageAgent, this.multiInstance);
+		this.pcfQueueManager.setMessageAgent(this.messageAgent);
 		this.pcfListener.setMessageAgent(this.messageAgent);
 		this.pcfQueue.setMessageAgent(this.messageAgent);
 		this.pcfChannel.setMessageAgent(this.messageAgent);
+		
+		this.pcfQueueManager.setDebugLevel(this._debugLevel);
+		this.pcfListener.setDebugLevel(this._debugLevel);
+		this.pcfQueue.setDebugLevel(this._debugLevel);
+		this.pcfChannel.setDebugLevel(this._debugLevel);
 		
 	}
 
@@ -258,7 +306,7 @@ public class MQConnection extends MQBase {
 		
 		if (!this.local) { 
 			getEnvironmentVariables();
-			log.info("Attempting to connect using a client connection");
+			if (getDebugLevel() == LEVEL.INFO) { log.info("Attempting to connect using a client connection"); }
 
 			env = new Hashtable<String, Comparable>();
 			env.put(MQConstants.HOST_NAME_PROPERTY, this.hostName);
@@ -275,29 +323,29 @@ public class MQConnection extends MQBase {
 			
 			if (!StringUtils.isEmpty(this.userId)) {
 				env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
-				log.info("USER_ID_PROPERTY: " + this.userId);
 			}
 			if (!StringUtils.isEmpty(this.password)) {
 				env.put(MQConstants.PASSWORD_PROPERTY, this.password);
-				log.info("PASSWORD_PROPERTY: " + this.password);
 			}
 			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 	
 			if (this.multiInstance) {
 				if (this.onceOnly) {
-					log.info("MQ Metrics is running in multiInstance mode");
+					if (getDebugLevel() == LEVEL.INFO) { 
+						log.info("MQ Metrics is running in multiInstance mode");
+					}
 				}
 			}
 			
-			if (this._debug) {
-				log.info("Host		: " + this.hostName);
-				log.info("Channel	: " + this.channel);
-				log.info("Port		: " + this.port);
-				log.info("Queue Man	: " + this.queueManager);
-				log.info("User		: " + this.userId);
-				log.info("Password	: **********");
+			if (getDebugLevel() == LEVEL.DEBUG) {
+				log.debug("Host		: " + this.hostName);
+				log.debug("Channel	: " + this.channel);
+				log.debug("Port		: " + this.port);
+				log.debug("Queue Man	: " + this.queueManager);
+				log.debug("User		: " + this.userId);
+				log.debug("Password	: **********");
 				if (this.bUseSSL) {
-					log.info("SSL is enabled ....");
+					log.debug("SSL is enabled ....");
 				}
 			}
 			
@@ -319,27 +367,27 @@ public class MQConnection extends MQBase {
 				}
 			
 			} else {
-				if (this._debug) {
-					log.info("SSL is NOT enabled ....");
+				if (getDebugLevel() == LEVEL.DEBUG) {
+					log.debug("SSL is NOT enabled ....");
 				}
 			}
 			
 	        //System.setProperty("javax.net.debug","all");
-			if (this._debug) {
+			if (getDebugLevel() == LEVEL.DEBUG) {
 				if (!StringUtils.isEmpty(this.truststore)) {
-					log.info("TrustStore       : " + this.truststore);
-					log.info("TrustStore Pass  : ********");
+					log.debug("TrustStore       : " + this.truststore);
+					log.debug("TrustStore Pass  : ********");
 				}
 				if (!StringUtils.isEmpty(this.keystore)) {
-					log.info("KeyStore         : " + this.keystore);
-					log.info("KeyStore Pass    : ********");
-					log.info("Cipher Suite     : " + this.cipher);
+					log.debug("KeyStore         : " + this.keystore);
+					log.debug("KeyStore Pass    : ********");
+					log.debug("Cipher Suite     : " + this.cipher);
 				}
 			}
 		} else {
-			if (this._debug) {
-				log.info("Attemping to connect using local bindings");
-				log.info("Queue Man	: " + this.queueManager);
+			if (getDebugLevel() == LEVEL.DEBUG) {
+				log.debug("Attemping to connect using local bindings");
+				log.debug("Queue Man	: " + this.queueManager);
 			}
 			
 		}
@@ -366,7 +414,7 @@ public class MQConnection extends MQBase {
 		} else {
 			log.info("Connection to queue manager is already established ");
 		}
-
+		
 		/*
 		 * Establish a PCF agent
 		 */
@@ -381,6 +429,8 @@ public class MQConnection extends MQBase {
 	}
 
 	// Set Run mode
+	// 0 - local
+	// 1 - client
 	private void setRunMode() {
 
 		int mode = 0;
@@ -464,7 +514,7 @@ public class MQConnection extends MQBase {
 	private void queueManagerIsNotRunning(int status) {
 
 		if (this.pcfQueueManager != null) {
-			this.pcfQueueManager.NotRunning(this.queueManager, this.multiInstance, status);
+			this.pcfQueueManager.notRunning(this.queueManager, this.multiInstance, status);
 		}
 
 		/*
@@ -497,13 +547,11 @@ public class MQConnection extends MQBase {
 	}
 	
 	/*
-	 * 
 	 * Check if the queue manager belongs to a cluster ...
-	 * 
 	 */
 	private void checkQueueManagerCluster() {
 
-		this.pcfQueueManager.CheckQueueManagerCluster();
+		this.pcfQueueManager.checkQueueManagerCluster();
 				
 	}
 	
@@ -516,7 +564,7 @@ public class MQConnection extends MQBase {
 		IOException, 
 		MQDataException {
 
-		this.pcfQueueManager.UpdateQMMetrics();
+		this.pcfQueueManager.updateQMMetrics();
 		this.pcfQueue.setQueueMonitoringFromQmgr(this.pcfQueueManager.getQueueMonitoringFromQmgr());		
 		
 	}
@@ -567,7 +615,7 @@ public class MQConnection extends MQBase {
 
     	try {
     		if (this.queManager.isConnected()) {
-	    		if (this._debug) { log.info("Closing MQ Connection "); }
+	    		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("Closing MQ Connection "); }
     			this.queManager.disconnect();
     		}
     	} catch (Exception e) {
@@ -576,7 +624,7 @@ public class MQConnection extends MQBase {
     	
     	try {
 	    	if (this.messageAgent != null) {
-	    		if (this._debug) { log.info("Closing PCF agent "); }
+	    		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("Closing PCF agent "); }
 	        	this.messageAgent.disconnect();
 	    	}
     	} catch (Exception e) {

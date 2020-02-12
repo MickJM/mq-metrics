@@ -20,9 +20,30 @@ public class MQBase {
 
 	@Value("${application.debug:false}")
     protected boolean _debug;
+	
+	@Value("${application.debugLevel:NONE}")
+	protected String _debugLevel;
+	
+	protected LEVEL lev;
+	public enum LEVEL {
+		NONE,
+		INFO,
+		DEBUG,
+		WARN,
+		ERROR,
+		TRACE
+	}
 
+	protected void setDebugLevel(String level) {
+		this.lev = LEVEL.valueOf(level);
+	}
+	
+	public LEVEL getDebugLevel() {
+		return this.lev;
+	}
+	
 	@Value("${ibm.mq.clearMetrics:10}")
-	protected int CONST_clearMetrics;
+	protected int CONST_CLEARMETRICS;
 
 	protected int clearMetrics;
 	
@@ -39,7 +60,7 @@ public class MQBase {
 	/*
 	 * Delete the appropriate metric
 	 */
-	protected void DeleteMetricEntry(String lookup) {
+	protected void deleteMetricEntry(String lookup) {
 		
 		List<Meter.Id> meterIds = null;
 		meterIds = this.meterRegistry.getMeters().stream()

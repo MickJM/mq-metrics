@@ -1,5 +1,10 @@
 application:
   debug: false
+  debugLevel: NONE
+  save:
+    metrics:
+     required: true
+     filename: c:\Users\mickm\eclipse-workspace\mq-metrics\mq-metrics\mySavedMetrics.json
 ibm:
   mq:
     queueManager1: QMAP01
@@ -16,7 +21,7 @@ ibm:
     user: MQMon01
     password: Passw0rd
     local: false
-    keepMetricsWhenQueueManagerIsDown: true
+    keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5    
     objects:
       queues:
