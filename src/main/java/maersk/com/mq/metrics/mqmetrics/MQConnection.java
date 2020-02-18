@@ -187,7 +187,6 @@ public class MQConnection extends MQBase {
 	@PostConstruct
 	public void setProperties() {
 		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("MQConnection: Object created"); }
-		System.out.println("POST CONSTRUCT Summary: " + this.summaryRequired);
 		setDebugLevel();
 		this.pcfChannel.loadProperties(this.summaryRequired);
 	}
