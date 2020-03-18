@@ -27,3 +27,4 @@
 #
 *.json
 /FFDC/
+mqjms.*

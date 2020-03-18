@@ -1,12 +1,28 @@
+application:
+  debug: true
+  debugLevel: INFO
+  save:
+    metrics:
+     required: false
+     filename: c:\Users\mickm\eclipse-workspace\mq-metrics\mq-metrics\mySavedMetrics.json
 ibm:
   mq:
+    queueManager1: QMAP01
+    channel1: MQ.TLS.SVRCONN
+    channel2: MQ.MONITOR.PCF
+    connName1: localhost(1442)
+    multiInstance: false
     queueManager: QMAP01
-    channel: MQ.MONITOR.SVRCONN
-    connName: localhost(1442)
+    channel: ADMIN.TLS.SVRCONN
+    connName: localhost(1480)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
-    useSSL: false
-    user: 
-    password: 
+    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+    useSSL: true
+    user: MQMon01
+    password: Passw0rd
+    local: false
+    keepMetricsWhenQueueManagerIsDown: false
+    clearMetrics: 5
     objects:
       queues:
         include: "*"
@@ -23,15 +39,15 @@ ibm:
     event:
       delayInMilliSeconds: 10000      
     security:
-      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks01.jks
+      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
       truststore-password: Passw0rd
-      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks01.jks
+      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
       keystore-password: Passw0rd
 management:
   endpoints:
     web:
       exposure:
-        include: info, health, prometheus
+        include: info, health, prometheus      
   endpoint:
     health:
       show-details: always        
@@ -41,7 +57,7 @@ info:
   app:
     name: MQ-Metrics
     description: IBM MQ Metrics
-    version: 1.0.0.0
+    version: 1.0.0.10
     java:
       version: 1.8.0.0
 server:

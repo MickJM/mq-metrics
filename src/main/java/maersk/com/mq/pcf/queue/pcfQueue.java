@@ -1,5 +1,16 @@
 package maersk.com.mq.pcf.queue;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Get queue details
+ * 
+ * 17/10/2019 - Amended MaxQueueDepth to maxQueueDepth, LastGetDateTime to lastGetDateTime, LastPutDateTime to lastPutDateTime
+ * 17/10/2019 - Amended the calculation of the Epoch value for lastGetDateTime and lastPutDateTime
+ * 
+ */
+
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -22,16 +33,16 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 @Component
-public class pcfQueue {
+public class pcfQueue extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
+    private Logger log = Logger.getLogger(this.getClass());
 
 	private String queueManager;
-
-	@Value("${application.debug:false}")
-    private boolean _debug;
 	
 	@Value("${ibm.mq.objects.queues.exclude}")
     private String[] excludeQueues;
@@ -47,145 +58,222 @@ public class pcfQueue {
 		this.queueMonitoringFromQmgr = value;
 	}
 
-    
-    private Logger log = Logger.getLogger(this.getClass());
+    private Map<String,AtomicInteger>queueMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>openInMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>openOutMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>maxQueMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicLong>lastGetMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>lastPutMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicInteger>oldAgeMap = new HashMap<String,AtomicInteger>();    
+    private Map<String,AtomicInteger>deQueMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>enQueMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>procMap = new HashMap<String,AtomicInteger>();
 
-    //Queue maps
-    private Map<String,AtomicInteger>queueDepMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueDeqMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueEnqMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicLong>queueLGDMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicLong>queueLPDMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicLong>queueAgeMap = new HashMap<String, AtomicLong>();
-    private Map<String,AtomicInteger>queueOpenInMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueOpenOutMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueMaxDepthMap = new HashMap<String, AtomicInteger>();
-    private Map<String,AtomicInteger>queueHandleMap = new HashMap<String, AtomicInteger>();
-    
+	protected static final String lookupQueDepth = MQPREFIX + "queueDepth";
+	protected static final String lookupOpenIn = MQPREFIX + "openInputCount";
+	protected static final String lookupOpenOut = MQPREFIX + "openOutputCount";
+	protected static final String lookupMaxDepth = MQPREFIX + "maxQueueDepth";
+	protected static final String lookupLastGetDateTime = MQPREFIX + "lastGetDateTime";
+	protected static final String lookupLastPutDateTime = MQPREFIX + "lastPutDateTime";
+	protected static final String lookupOldMsgAge = MQPREFIX + "oldestMsgAge";
+	protected static final String lookupdeQueued = MQPREFIX + "deQueued";
+	protected static final String lookupenQueued = MQPREFIX + "enQueued";
+	protected static final String lookupQueueProcesses = MQPREFIX + "queueProcesses";
+	
+	protected static final String lookupPutCount = MQPREFIX + "putCount";
+	protected static final String lookupPut1Count = MQPREFIX + "put1Count";
+	protected static final String lookupPutBytes = MQPREFIX + "putBytes";
+
     private PCFMessageAgent messageAgent;
-    public void setMessageAgent(PCFMessageAgent agent) {
+
+	public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
     
     }
 	
-    public pcfQueue() {    	
+    public pcfQueue() {
+		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("pcfQueue: Object created"); }
     }
     
     /*
      * Get the metrics for each queue that we want
      */
-	public void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
+	public void updateQueueMetrics() throws MQException, IOException, MQDataException {
+	
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue request"); }
 
-		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
+		/*
+		 * Clear the metrics every 'x' iteration
+		 */
+		this.clearMetrics++;
+		if (this.clearMetrics % CONST_CLEARMETRICS == 0) {
+			this.clearMetrics = 0;
+			if (getDebugLevel() == LEVEL.DEBUG 
+					|| getDebugLevel() == LEVEL.TRACE) {
+				log.trace("Clearing queue metrics");
+			}
+			resetMetrics();
+		}
+		
+		// 17/10/2019 Amended to include HH.mm.ss
+		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q);
 		pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, "*");
 		pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_ALL);		
-        PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);
-			        
+        
+		PCFMessage[] pcfResponse = null;
+		try {
+			pcfResponse = this.messageAgent.send(pcfRequest);
+		} catch (Exception e) {
+			if (getDebugLevel() == LEVEL.DEBUG) { log.warn("pcfQueue: no response returned - " + e.getMessage()); }
+			
+		}
+		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("pcfQueue: inquire queue response"); }
+
+		/*
+		 * For each response, get the MQ details
+		 */
 		for (PCFMessage pcfMsg : pcfResponse) {
 			String queueName = null;
 			try {
 				queueName = pcfMsg.getStringParameterValue(MQConstants.MQCA_Q_NAME).trim();
-				int qType = pcfMsg.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
-				String queueType = GetQueueType(qType);
-				
-				int qUsage = pcfMsg.getIntParameterValue(MQConstants.MQIA_USAGE);
-				String queueUsage = "Normal";
-				if (qUsage != MQConstants.MQUS_NORMAL) {
-					queueUsage = "Transmission";
-				}
+				if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: queue name: " + queueName); }
+
 				if (checkQueueNames(queueName)) {
+					int qType = pcfMsg.getIntParameterValue(MQConstants.MQIA_Q_TYPE);
+					if ((qType != MQConstants.MQQT_LOCAL) && (qType != MQConstants.MQQT_ALIAS)) {
+						if (getDebugLevel() == LEVEL.TRACE ) { log.trace("pcfQueue: Queue type is not required : " + qType); }
+						throw new Exception("Queue type is not required");
+					}
+					
+					int qUsage = 0;
+					int value = 0;
+	 				String queueType = getQueueType(qType);
+					String queueCluster = "";
+					String queueUsage = "";
+					
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue local"); }
+						qUsage = pcfMsg.getIntParameterValue(MQConstants.MQIA_USAGE);
+						queueUsage = "Normal";
+						if (qUsage != MQConstants.MQUS_NORMAL) {
+							queueUsage = "Transmission";
+						}
+						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
+						queueCluster = pcfMsg.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME).trim();
+	
+					} else {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue alias"); }
+						queueUsage = "Alias";
+						queueCluster = pcfMsg.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME).trim();
+	
+					}
+
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue status"); }
+
 					PCFMessage pcfInqStat = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
 					pcfInqStat.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-					//int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
-					//pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_ATTRS, pcfParmAttrs);
-					pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);					
-					PCFMessage[] pcfResStat = this.messageAgent.send(pcfInqStat);
 
-					PCFMessage pcfReset = new PCFMessage(MQConstants.MQCMD_RESET_Q_STATS);
-					pcfReset.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-					PCFMessage[] pcfResResp = this.messageAgent.send(pcfReset);
+					PCFMessage[] pcfResStat = null;
+					PCFMessage[] pcfResResp = null;
+					if (qType != MQConstants.MQQT_ALIAS) {
+						pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);					
+						pcfResStat = this.messageAgent.send(pcfInqStat);
+						PCFMessage pcfReset = new PCFMessage(MQConstants.MQCMD_RESET_Q_STATS);
+						pcfReset.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+						pcfResResp = this.messageAgent.send(pcfReset);
+						if (getDebugLevel() == LEVEL.DEBUG) { log.debug("pcfQueue: inquire queue status response"); }
+
+					}
 					
-					int value = pcfMsg.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
-					String queueCluster = pcfMsg.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME).trim();
-
 					// Queue depth
-					AtomicInteger i = queueDepMap.get(queueName);
-					if (i == null) {
-						queueDepMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("queueDepth").toString(), 
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: queue depth"); }
+					AtomicInteger qdep = queueMap.get(lookupQueDepth + "_" + queueName);
+					if (qdep == null) {
+						queueMap.put(lookupQueDepth + "_" + queueName, meterRegistry.gauge(lookupQueDepth, 
 								Tags.of("queueManagerName", this.queueManager,
 										"queueName", queueName,
 										"queueType", queueType,
 										"usage",queueUsage,
 										"cluster",queueCluster
 										),
-								new AtomicInteger(value)));
+								new AtomicInteger(value))
+								);
 					} else {
-						i.set(value);
+						qdep.set(value);
 					}
+					if ((LEVEL)getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: queue depth: " + queueName +": " + value); }
 					
 					// OpenInput count
-					int openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
-					AtomicInteger inC = queueOpenInMap.get(queueName);
-					if (inC == null) {
-						queueOpenInMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("openInputCount").toString(),
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(openInvalue)));
-					} else {
-						inC.set(openInvalue);
+					int openInvalue = 0;
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue input count"); }
+						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
+						AtomicInteger openIn = openInMap.get(lookupOpenIn + "_" + queueName);
+						if (openIn == null) {
+							openInMap.put(lookupOpenIn + "_" + queueName, meterRegistry.gauge(lookupOpenIn, 
+									Tags.of("queueManagerName", this.queueManager,
+											"queueName", queueName,
+											"queueType", queueType,
+											"usage",queueUsage,
+											"cluster",queueCluster
+											),
+									new AtomicInteger(openInvalue))
+									);
+						} else {
+							openIn.set(openInvalue);
+						}
+
 					}
 
-					// Open ouput count
-					int openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
-					AtomicInteger outC = queueOpenOutMap.get(queueName);
-					if (outC == null) {
-						queueOpenOutMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("openOutputCount").toString(), 
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(openOutvalue)));
-					} else {
-						outC.set(openOutvalue);
+					// Open output count
+					int openOutvalue = 0;
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue output count"); }
+						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
+						AtomicInteger openOut = openOutMap.get(lookupOpenOut + "_" + queueName);
+						if (openOut == null) {
+							openOutMap.put(lookupOpenOut + "_" + queueName, meterRegistry.gauge(lookupOpenOut, 
+									Tags.of("queueManagerName", this.queueManager,
+											"queueName", queueName,
+											"queueType", queueType,
+											"usage",queueUsage,
+											"cluster",queueCluster
+											),
+									new AtomicInteger(openOutvalue))
+									);
+						} else {
+							openOut.set(openOutvalue);
+						}
+
 					}
 
 					if ((openInvalue > 0) || (openOutvalue > 0) ) {
-					//	ProcessQueueHandlers(queueName);
-						
+						processQueueHandlers(queueName, queueCluster);
 					}
-					
+
 					// Maximum queue depth
-					value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
-					AtomicInteger maxqd = queueMaxDepthMap.get(queueName);
-					if (maxqd == null) {
-						queueMaxDepthMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("maxQueueDepth").toString(), 
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(value)));
-					} else {
-						maxqd.set(value);
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue depth"); }
+						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
+						AtomicInteger openMax = maxQueMap.get(lookupMaxDepth + "_" + queueName);
+						if (openMax == null) {
+							maxQueMap.put(lookupMaxDepth + "_" + queueName, meterRegistry.gauge(lookupMaxDepth, 
+									Tags.of("queueManagerName", this.queueManager,
+											"queueName", queueName,
+											"queueType", queueType,
+											"usage",queueUsage,
+											"cluster",queueCluster
+											),
+									new AtomicInteger(value))
+									);
+						} else {
+							openMax.set(value);
+						}
+
 					}
-					
+
 					
 					// for dates / time - the queue manager or queue monitoring must be at least 'low'
 					// MQMON_OFF 	- Monitoring data collection is turned off
@@ -193,138 +281,188 @@ public class pcfQueue {
 					// MQMON_LOW	- Monitoring data collection is turned on, with low ratio of data collection
 					// MQMON_MEDIUM	- Monitoring data collection is turned on, with moderate ratio of data collection
 					// MQMON_HIGH	- Monitoring data collection is turned on, with high ratio of data collection
-					if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
-							|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
-						String lastGetDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
-						String lastGetTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
-						if (!(lastGetDate.equals(" ") && lastGetTime.equals(" "))) {
-							Date dt = formatter.parse(lastGetDate);
-							long ld = dt.getTime() / (24*60*60*1000);	
-							long hrs = Integer.parseInt(lastGetTime.substring(0, 2));
-							long min = Integer.parseInt(lastGetTime.substring(3, 5));
-							long sec = Integer.parseInt(lastGetTime.substring(6, 8));
-							long seconds = sec + (60 * min) + (3600 * hrs);
-							ld *= 86400;
-							ld += seconds;
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue LAST GET DATE : " + queueName); }
+						if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
+								|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
+							String lastGetDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
+							String lastGetTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
+							if (!(lastGetDate.equals(" ") && lastGetTime.equals(" "))) {
+					
+						// 17/10/2019 Amened to correctly calculate the epoch value			
+								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
+								long ld = dt.getTime();
+								// Last Get date and time
+								AtomicLong getDate = lastGetMap.get(lookupLastGetDateTime + "_" + queueName);
+								if (getDate == null) {
+									lastGetMap.put(lookupLastGetDateTime + "_" + queueName, meterRegistry.gauge(lookupLastGetDateTime, 
+											Tags.of("queueManagerName", this.queueManager,
+													"queueName", queueName,
+													"queueType", queueType,
+													"usage",queueUsage,
+													"cluster",queueCluster
+													),
+											new AtomicLong(ld))
+											);
+								} else {
+									getDate.set(ld);
+								}
+									
+							}
+		
+							String lastPutDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
+							String lastPutTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
+							if (!(lastPutDate.equals(" ") && lastPutTime.equals(" "))) {
+								if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue LAST PUT DATE : " + queueName); }
+								
+					// 17/10/2019 amended to correctly calculate the epoch value				
+								Date dt = formatter.parse(lastPutDate + " " + lastPutTime);
+								long ld = dt.getTime();
+								// Last put date and time
+								AtomicLong lastDate = lastPutMap.get(lookupLastPutDateTime + "_" + queueName);
+								if (getDebugLevel() == LEVEL.TRACE ) { log.info("pcfQueue: lastDate : " + lastDate); }
+
+								if (lastDate == null) {
+									lastPutMap.put(lookupLastPutDateTime + "_" + queueName, meterRegistry.gauge(lookupLastPutDateTime, 
+											Tags.of("queueManagerName", this.queueManager,
+													"queueName", queueName,
+													"queueType", queueType,
+													"usage",queueUsage,
+													"cluster",queueCluster
+													),
+											new AtomicLong(ld))
+											);
+								} else {
+									lastDate.set(ld);
+								}
+
+							}										
 							
-							// Last Get date and time
-							AtomicLong lgd = queueLGDMap.get(queueName);
-							if (lgd == null) {
-								queueLGDMap.put(queueName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("lastGetDateTime").toString(), 
+							if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue old-age"); }
+							// Oldest message age
+							int old = pcfResStat[0].getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
+							AtomicInteger oldAge = oldAgeMap.get(lookupOldMsgAge + "_" + queueName);
+							if (oldAge == null) {
+								lastPutMap.put(lookupOldMsgAge + "_" + queueName, meterRegistry.gauge(lookupOldMsgAge, 
 										Tags.of("queueManagerName", this.queueManager,
 												"queueName", queueName,
 												"queueType", queueType,
 												"usage",queueUsage,
-												"cluster",queueCluster,
-												"type", "timestamp"
+												"cluster",queueCluster
 												),
-										new AtomicLong(ld)));
+										new AtomicLong(old))
+										);
 							} else {
-								lgd.set(ld);
-							}							
+								oldAge.set(old);
+							}
+
 						}
-	
-						String lastPutDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_DATE);
-						String lastPutTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_PUT_TIME);
-						if (!(lastPutDate.equals(" ") && lastPutTime.equals(" "))) {
-							Date dt = formatter.parse(lastPutDate);
-							long ld = dt.getTime() / (24*60*60*1000);	
-							long hrs = Integer.parseInt(lastPutTime.substring(0, 2));
-							long min = Integer.parseInt(lastPutTime.substring(3, 5));
-							long sec = Integer.parseInt(lastPutTime.substring(6, 8));
-							long seconds = sec + (60 * min) + (3600 * hrs);
-							ld *= 86400;
-							ld += seconds;
-							
-							// Last put date and time
-							AtomicLong lpd = queueLPDMap.get(queueName);
-							if (lpd == null) {
-								queueLPDMap.put(queueName, Metrics.gauge(new StringBuilder()
-										.append(MQPREFIX)
-										.append("lastPutDateTime").toString(), 
-										Tags.of("queueManagerName", this.queueManager,
-												"queueName", queueName,
-												"queueType", queueType,
-												"usage",queueUsage,
-												"cluster",queueCluster,
-												"type", "timestamp"
-												),
-										new AtomicLong(ld)));
-							} else {
-								lpd.set(ld);
-							}							
-						}										
-						
-						// Oldest message age
-						int old = pcfResStat[0].getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
-						AtomicLong age = queueAgeMap.get(queueName);
-						if (age == null) {
-							queueAgeMap.put(queueName, Metrics.gauge(new StringBuilder()
-									.append(MQPREFIX)
-									.append("oldestMsgAge").toString(), 
+					}
+					
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue de-queued"); }
+						// Messages DeQueued
+						int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
+						AtomicInteger deQue = deQueMap.get(lookupdeQueued + "_" + queueName);
+						if (deQue == null) {
+							deQueMap.put(lookupdeQueued + "_" + queueName, meterRegistry.gauge(lookupdeQueued, 
 									Tags.of("queueManagerName", this.queueManager,
 											"queueName", queueName,
 											"queueType", queueType,
 											"usage",queueUsage,
-											"cluster",queueCluster,
-											"type", "seconds"
+											"cluster",queueCluster
 											),
-									new AtomicLong(old)));
+									new AtomicInteger(devalue))
+									);
 						} else {
-							age.set(old);
-						}							
+							deQue.set(devalue);
+						}
+
 					}
 
-					// Messages DeQueued
-					int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
-					AtomicInteger d = queueDeqMap.get(queueName);
-					if (d == null) {
-						queueDeqMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("deQueued").toString(),
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(devalue)));
-					} else {
-						d.set(devalue);
+					if (qType != MQConstants.MQQT_ALIAS) {
+						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue en-queued"); }
+						// Messages EnQueued
+						int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
+						AtomicInteger enQue = enQueMap.get(lookupenQueued + "_" + queueName);
+						if (enQue == null) {
+							enQueMap.put(lookupenQueued + "_" + queueName, meterRegistry.gauge(lookupenQueued, 
+									Tags.of("queueManagerName", this.queueManager,
+											"queueName", queueName,
+											"queueType", queueType,
+											"usage",queueUsage,
+											"cluster",queueCluster
+											),
+									new AtomicInteger(envalue))
+									);
+						} else {
+							enQue.set(envalue);
+						}
+
 					}
 
-					// Messages EnQueued
-					int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
-					AtomicInteger e = queueEnqMap.get(queueName);
-					if (e == null) {
-						queueEnqMap.put(queueName, Metrics.gauge(new StringBuilder()
-								.append(MQPREFIX)
-								.append("enQueued").toString(), 
-								Tags.of("queueManagerName", this.queueManager,
-										"queueName", queueName,
-										"queueType", queueType,
-										"usage",queueUsage,
-										"cluster",queueCluster
-										),
-								new AtomicInteger(envalue)));
-					} else {
-						e.set(envalue);
-					}					
 				}
 				
 			} catch (Exception e) {
-				// do nothing
+				if ((getDebugLevel() == LEVEL.DEBUG )
+						|| (getDebugLevel() == LEVEL.TRACE )
+						|| (getDebugLevel() == LEVEL.WARN )) { log.warn("pcfQueue: unable to get queue metrcis " + e.getMessage()); }
+				
 			}
 		}
 	}
-    
+
+	/*
+	 * Get the handles from each queue
+	 */
+	private void processQueueHandlers(String queueName, String cluster ) throws MQException, IOException, MQDataException {
+		
+		PCFMessage pcfInqHandle = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
+		pcfInqHandle.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+		pcfInqHandle.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_HANDLE);					
+		PCFMessage[] pcfResHandle = this.messageAgent.send(pcfInqHandle);
+
+		int seq = 0;
+		for (PCFMessage pcfMsg : pcfResHandle) {
+			int state = pcfMsg.getIntParameterValue(MQConstants.MQIACF_HANDLE_STATE);		
+			String conn = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
+			String appName = 
+					pcfMsg.getStringParameterValue(MQConstants.MQCACF_APPL_TAG).trim();			
+			String userId = 
+					pcfMsg.getStringParameterValue(MQConstants.MQCACF_USER_IDENTIFIER).trim();			
+
+			AtomicInteger proc = procMap.get(lookupQueueProcesses + "_" + appName.trim() + "_" + seq);
+			if (proc == null) {
+				procMap.put(lookupQueueProcesses + "_" + appName.trim() + "_" + seq, 
+						meterRegistry.gauge(lookupQueueProcesses, 
+						Tags.of("queueManagerName", this.queueManager,
+								"cluster",cluster,
+								"queueName", queueName.trim(),
+								"application", appName.trim(),
+								"user", userId,
+								"seq",Integer.toString(seq)
+								),
+						new AtomicInteger(state))
+						);
+			} else {
+				proc.set(state);
+			}
+			
+			seq++;
+		}
+				
+	}
+	
+	
 	/*
 	 * Check for the queue names
 	 */
 	private boolean checkQueueNames(String name) {
 
+		if (name.equals(null)) {
+			return false;
+		}
+		
 		// Exclude ...
 		for (String s : this.excludeQueues) {
 			if (s.equals("*")) {
@@ -352,7 +490,7 @@ public class pcfQueue {
 	/*
 	 * Queue types
 	 */
-	private String GetQueueType(int qType) {
+	private String getQueueType(int qType) {
 
 		String queueType = "";
 		switch (qType) {
@@ -391,140 +529,44 @@ public class pcfQueue {
 
 		return queueType;
 	}
-	
-	
-	// Not running
-	public void NotRunning() {
-		SetMetricsValue(0);
-	}
 
-	private void ResetMetrics() {
-		SetMetricsValue(-1);
-		
+	/*
+	 * Reset metrics
+	 */
+	public void resetMetrics() {
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: resetting metrics"); }
+		deleteMetrics();
 	}
 	
-	// If the queue manager is not running, set any listeners state not running
-	public void SetMetricsValue(int val) {
+	/*
+	 * Clear the metrics ....
+	 */
+	private void deleteMetrics() {
 
-		// For each listener, set the status to indicate its not running, as the ...
-		// ... queue manager is not running
-		Iterator<Entry<String, AtomicInteger>> qdepth = this.queueDepMap.entrySet().iterator();
-		while (qdepth.hasNext()) {
-	        Map.Entry pair = (Map.Entry)qdepth.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueDepth metrics");
-	        }
-		}
+		deleteMetricEntry(lookupQueDepth);
+		deleteMetricEntry(lookupOpenIn);
+		deleteMetricEntry(lookupOpenOut);		
+		deleteMetricEntry(lookupMaxDepth);		
+		deleteMetricEntry(lookupLastGetDateTime);
+		deleteMetricEntry(lookupLastPutDateTime);
+		deleteMetricEntry(lookupOldMsgAge);
+		deleteMetricEntry(lookupdeQueued);
+		deleteMetricEntry(lookupenQueued);
+		deleteMetricEntry(lookupQueueProcesses);
 		
-		Iterator<Entry<String, AtomicInteger>> deq = this.queueDeqMap.entrySet().iterator();
-		while (deq.hasNext()) {
-	        Map.Entry pair = (Map.Entry)deq.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set DeQueued metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> enq = this.queueEnqMap.entrySet().iterator();
-		while (enq.hasNext()) {
-	        Map.Entry pair = (Map.Entry)enq.next();
-	        try {
-				AtomicInteger i = (AtomicInteger) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set EnqQueued metrics");
-	        }
-		}
 		
-		Iterator<Entry<String, AtomicLong>> lgd = this.queueLGDMap.entrySet().iterator();
-		while (lgd.hasNext()) {
-	        Map.Entry pair = (Map.Entry)lgd.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set LastGetDate metrics");
-	        }
-		}
+	    this.queueMap.clear();
+	    this.openInMap.clear();
+	    this.openOutMap.clear();
+	    this.maxQueMap.clear();
+	    this.lastGetMap.clear();
+	    this.lastPutMap.clear();
+	    this.oldAgeMap.clear();
+	    this.deQueMap.clear();
+	    this.enQueMap.clear();
+	    this.procMap.clear();
 		
-		Iterator<Entry<String, AtomicLong>> lpd = this.queueLPDMap.entrySet().iterator();
-		while (lpd.hasNext()) {
-	        Map.Entry pair = (Map.Entry)lpd.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set LastPutDate metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicLong>> age = this.queueAgeMap.entrySet().iterator();
-		while (age.hasNext()) {
-	        Map.Entry pair = (Map.Entry)age.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueMessageAge metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> oin = this.queueOpenInMap.entrySet().iterator();
-		while (oin.hasNext()) {
-	        Map.Entry pair = (Map.Entry)oin.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenInCount metrics");
-	        }
-		}
-
-		Iterator<Entry<String, AtomicInteger>> oout = this.queueOpenOutMap.entrySet().iterator();
-		while (oout.hasNext()) {
-	        Map.Entry pair = (Map.Entry)oout.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenOutCount metrics");
-	        }
-		}
-		
-		Iterator<Entry<String, AtomicInteger>> max = this.queueMaxDepthMap.entrySet().iterator();
-		while (max.hasNext()) {
-	        Map.Entry pair = (Map.Entry)max.next();
-	        try {
-				AtomicLong i = (AtomicLong) pair.getValue();
-				if (i != null) {
-					i.set(val);
-				}
-	        } catch (Exception e) {
-	        	log.error("Unable to set QueueOpenOutCount metrics");
-	        }
-		}
 		
 	}
-
+	
 }

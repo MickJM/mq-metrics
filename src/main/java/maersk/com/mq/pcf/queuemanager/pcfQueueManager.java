@@ -1,7 +1,19 @@
 package maersk.com.mq.pcf.queuemanager;
 
+/*
+ * Copyright 2019
+ * Mick Moriarty - Maersk
+ *
+ * Get queue manager details
+ * 
+ * 22/10/2019 - When the queue manager is not running, check if the status is multi-instance
+ *              and set the status accordingly
+ */
+
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -14,44 +26,47 @@ import org.springframework.stereotype.Service;
 import com.ibm.mq.MQException;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.search.RequiredSearch;
+import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQConnection;
+import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
+
+import java.util.Collections.*;
 
 @Component
-public class pcfQueueManager {
+public class pcfQueueManager extends MQBase {
 
-	private static final String MQPREFIX = "mq:";
+    private Logger log = Logger.getLogger(this.getClass());
 
 	private String queueManager;
 
     @Value("${ibm.mq.event.delayInMilliSeconds}")
-	private long resetIterations;
-	//public void setResetIterations(long value) {
-	//	this.resetIterations = value;
-	//}
-	
-	@Value("${application.debug:false}")
-    private boolean _debug;
-	
-    private Logger log = Logger.getLogger(this.getClass());
+	private int resetIterations;
 
     private PCFMessageAgent messageAgent = null;
 
-    private Map<String,AtomicLong>mqReset = new HashMap<String, AtomicLong>();
+	protected static final String cmdLookupStatus = MQPREFIX + "commandServerStatus";
+	protected static final String lookupStatus = MQPREFIX + "queueManagerStatus";
+	protected static final String lookupReset = MQPREFIX + "resetIterations";
+	protected static final String lookupMultiInstance = MQPREFIX + "multiInstance";
+	
+    private Map<String,AtomicInteger>qmMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>cmdMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>iterMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>multiMap = new HashMap<String,AtomicInteger>();
 
-    //Queue Manager / IIB maps
-    private Map<String,AtomicInteger>qmStatusMap = new HashMap<String, AtomicInteger>();
-
-    //Command Server maps
-    private Map<String,AtomicInteger>cmdStatusMap = new HashMap<String, AtomicInteger>();
-
-
-	private String queueManagerClusterName;
+    //private Boolean multiInstance = false;
+    
+	private String queueManagerClusterName = "";
 	public String getQueueManagerClusterName() {
 		return this.queueManagerClusterName;
 	}
@@ -70,43 +85,40 @@ public class pcfQueueManager {
 	// Constructor
     public pcfQueueManager() {
     }
-    
+
+    /*
+     * Set the message agant object and the queue manager name
+     */
     public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
-    	
     }
 	
     /*
-     * Set the number of iterations that the metrics are collected
+     * Set the number of iterations for the metrics to be collected
      */
-	public void ResetIteration() {
-		
-        AtomicLong q = mqReset.get(this.queueManager);
-		if (q == null) {
-			mqReset.put(this.queueManager, 
-					Metrics.gauge(new StringBuilder()
-							.append(MQPREFIX)
-							.append("ResetIterations").toString(),  
-					Tags.of("queueManagerName", this.queueManager),
-					new AtomicLong(resetIterations)));
+	public void ResetIteration(String queueMan) {
+
+		AtomicInteger value = iterMap.get(lookupReset + "_" + queueMan);
+		if (value == null) {
+			iterMap.put(lookupReset + "_" + this.queueManager, meterRegistry.gauge(lookupReset, 
+					Tags.of("queueManagerName", queueMan),
+					new AtomicInteger(this.resetIterations))
+					);
 		} else {
-			q.set(0);
-		}        
-		
+			value.set(this.resetIterations);
+		}
+
 	}
 	
 	/*
 	 * Get the cluster name of the queue manager
 	 */
-	public void CheckQueueManagerCluster() {
+	public void checkQueueManagerCluster() {
 		
-        //int[] pcfParmAttrs = { MQConstants.MQIACF_Q_MGR_CLUSTER };
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
         
         PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CLUSTER_Q_MGR);
-        //pcfRequest1.addParameter(MQConstants.MQIACF_Q_MGR_ATTRS, pcfParmAttrs);
-        //pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_ATTRS, pcfParmAttrs);
         pcfRequest.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, this.queueManager); 
         pcfRequest.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, pcfParmAttrs);
        
@@ -116,9 +128,9 @@ public class pcfQueueManager {
 	        PCFMessage response = pcfResponse[0];
 	        String clusterNames = response.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME);
 	        setQueueManagerClusterName(clusterNames.trim());
+
         } catch (Exception e) {
-        	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
-        	setQueueManagerClusterName("");
+       // 	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
         	
         }	
 	}
@@ -128,13 +140,12 @@ public class pcfQueueManager {
 	 * ... if we are not connected, then we will not set the status here
 	 * ... it will be set in the NotRunning method
 	 */
-	public void UpdateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
+	public void updateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
 
 		// Enquire on the queue manager ...
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_MGR);
 		pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_ATTRS, pcfParmAttrs);
-		//pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_CLUSTER, pcfParmAttrs);
 		PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);		
 		PCFMessage response = pcfResponse[0];
 	
@@ -150,53 +161,97 @@ public class pcfQueueManager {
 		
 		// queue manager status
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
-		AtomicInteger q = qmStatusMap.get(this.queueManager);
-		if (q == null) {
-			qmStatusMap.put(this.queueManager, 
-				Metrics.gauge(new StringBuilder()
-				.append(MQPREFIX)
-				.append("queueManagerStatus")
-				.toString(),  
-				Tags.of("queueManagerName", this.queueManager,
-				"cluster",getQueueManagerClusterName()),
-			new AtomicInteger(qmStatus)));
+		
+		AtomicInteger qmStat = qmMap.get(lookupStatus + "_" + this.queueManager);
+		if (qmStat == null) {
+			qmMap.put(lookupStatus + "_" + this.queueManager, meterRegistry.gauge(lookupStatus, 
+					Tags.of("queueManagerName", this.queueManager,
+							"cluster",getQueueManagerClusterName()),
+					new AtomicInteger(qmStatus))
+					);
 		} else {
-			q.set(qmStatus);
-		}        
-	
+			qmStat.set(qmStatus);
+		}
+
 		// command server status
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
-		AtomicInteger cmd = cmdStatusMap.get(this.queueManager);
-		if (cmd == null) {
-			cmdStatusMap.put(this.queueManager, 
-			Metrics.gauge(new StringBuilder()
-				.append(MQPREFIX)
-				.append("commandServerStatus")
-				.toString(), 
-				Tags.of("queueManagerName", this.queueManager), 
-			new AtomicInteger(cmdStatus)));
+		AtomicInteger value = cmdMap.get(cmdLookupStatus + "_" + this.queueManager);
+		if (value == null) {
+			cmdMap.put(cmdLookupStatus + "_" + this.queueManager, meterRegistry.gauge(cmdLookupStatus, 
+					Tags.of("queueManagerName", this.queueManager),
+					new AtomicInteger(cmdStatus))
+					);
 		} else {
-			cmd.set(cmdStatus);
-		}        	
+			value.set(cmdStatus);
+		}
+
 	}
 	
 	/*
 	 * Called from the main class, if we are not running, set the status
 	 */
-	public void NotRunning() {
+	public void notRunning(String qm, Boolean mi, int status) {
 
+		if (this.queueManager != null) {
+			qm = this.queueManager;
+		}
+		
 		// Set the queue manager status to indicate that its not running
-		AtomicInteger q = qmStatusMap.get(this.queueManager);
-		if (q == null) {
-			qmStatusMap.put(this.queueManager, 
-					Metrics.gauge("mq:queueManagerStatus", 
-					Tags.of("queueManagerName", this.queueManager,
-							"cluster","unknown"), 
-					new AtomicInteger(0)));
+		// If the multiInstance flag is set to true, then set the queue manager to be in standby
+		//
+		// NOTE: There is an issue with the above, as if the queue manager was in a STOPPED state, then
+		//       the status would ALWAYS show as STANDBY
+		// 0 - stopped, 1 - starting, 2 - running, 3 - quiescing, 4 - standby
+		//
+		// Can never get starting, quiescing or standby at the moment using a client connection ...
+		//   as there needs to be a connection to the queue manager
+		//
+		
+		int val = MQPCFConstants.PCF_INIT_VALUE;
+		if (status == MQConstants.MQRC_STANDBY_Q_MGR) {
+			val = MQConstants.MQQMSTA_STANDBY;
+		} 		
+		if (status == MQConstants.MQRC_Q_MGR_QUIESCING) {
+			val = MQConstants.MQQMSTA_QUIESCING;
+		} 
+		AtomicInteger value = qmMap.get(lookupStatus + "_" + this.queueManager);
+		if (value == null) {
+			qmMap.put(lookupStatus + "_" + qm, meterRegistry.gauge(lookupStatus, 
+					Tags.of("queueManagerName", qm,
+							"cluster",getQueueManagerClusterName()),
+					new AtomicInteger(val))
+					);
 		} else {
-			q.set(0);
-		}        
+			value.set(val);
+		}
+				
+		// Set the queue manager status to indicate that its in multi-instance
+		val = MQPCFConstants.NOT_MULTIINSTANCE;
+		if (mi) {
+			val = MQPCFConstants.MULTIINSTANCE;
+		}
+		AtomicInteger multiVal = multiMap.get(lookupMultiInstance + "_" + qm);
+		if (multiVal == null) {
+			multiMap.put(lookupMultiInstance + "_" + qm, meterRegistry.gauge(lookupMultiInstance, 
+					Tags.of("queueManagerName", qm),
+					new AtomicInteger(val))
+					);
+		} else {
+			multiVal.set(val);
+		}
 		
 	}
+	
+	/*
+	 * Remove the metric
+	 */	
+	private void resetMetric() {
+		deleteMetricEntry(lookupReset);
+		deleteMetricEntry(lookupStatus);
+		deleteMetricEntry(cmdLookupStatus);
+		deleteMetricEntry(lookupMultiInstance);
+		
+	}
+
 	
 }
