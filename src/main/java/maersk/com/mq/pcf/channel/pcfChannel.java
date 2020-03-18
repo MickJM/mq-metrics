@@ -9,7 +9,12 @@ package maersk.com.mq.pcf.channel;
  */
 
 import java.io.IOException;
+import java.sql.Timestamp;
+import java.text.DateFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -22,6 +27,7 @@ import javax.annotation.PostConstruct;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
@@ -75,8 +81,9 @@ public class pcfChannel extends MQBase {
     private MQMetricSummary metricSummary;    
     private int metricSummaryCount = 0;
 
+	
     /*
-     * Constructore ...
+     * Constructor ...
      *    If metricsSummary data is being created, re-load the metrics
      */
     public pcfChannel(MQMetricSummary metricSummary) {
@@ -89,8 +96,13 @@ public class pcfChannel extends MQBase {
 			if (getDebugLevel() == LEVEL.TRACE) { log.trace("MetricSummary does not exist ...."); }
 		}
 
+		
     }
 
+    @PostConstruct
+    private void PostMethod() {
+    }
+    
     public void loadProperties(boolean summaryRequired) {
     	log.debug("Channel loadProperties ....");    	
 		this.summaryRequired = summaryRequired;
@@ -141,14 +153,10 @@ public class pcfChannel extends MQBase {
 			if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: no response returned - " + e.getMessage()); }
 			
 		}		
+				
 		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: inquire on channel response"); }
-
 		int[] pcfStatAttrs = { MQConstants.MQIACF_ALL };
-		//int iChannelCounter = MQPCFConstants.BASE;
-		//int iChannelSeq = MQPCFConstants.BASE;
-		
-		//String debugName = "";
-		
+
 		// for each return response, loop
 		try {
 			for (PCFMessage pcfMsg : pcfResponse) {
@@ -171,8 +179,7 @@ public class pcfChannel extends MQBase {
 					pcfReq.addParameter(MQConstants.MQCACH_CHANNEL_NAME, channelName);
 					pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_TYPE, MQConstants.MQOT_CURRENT_CHANNEL);				
 					pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_ATTRS, pcfStatAttrs);
-	
-					
+						
 					// loop through each response
 					// ... for now, only show that the channel is running and not ALL instances that is using the channel
 					// ... this is becuase of the way the prometheus metrics are registered
@@ -181,7 +188,6 @@ public class pcfChannel extends MQBase {
 						pcfResp = this.messageAgent.send(pcfReq);
 						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: inquire channel status response "); }
 						PCFMessage pcfStatus = pcfResp[MQPCFConstants.BASE];
-						//for (PCFMessage pcfMessage : pcfResp) {
 							
 						int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
 						AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName );
@@ -240,6 +246,7 @@ public class pcfChannel extends MQBase {
 					int bytesReceviedOverChannels = MQPCFConstants.BASE;
 					int bytesSentOverChannels = MQPCFConstants.BASE;
 					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: inquire messages over channels"); }
+										
 					try {
 						
 						// Count the messages over the number of threads on each channel
@@ -534,5 +541,6 @@ public class pcfChannel extends MQBase {
 
 		
 	}
+
     
 }

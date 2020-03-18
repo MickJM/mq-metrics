@@ -130,7 +130,7 @@ public class pcfQueueManager extends MQBase {
 	        setQueueManagerClusterName(clusterNames.trim());
 
         } catch (Exception e) {
-        	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
+       // 	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
         	
         }	
 	}

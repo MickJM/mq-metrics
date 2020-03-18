@@ -1,9 +1,9 @@
 application:
-  debug: false
-  debugLevel: NONE
+  debug: true
+  debugLevel: INFO
   save:
     metrics:
-     required: true
+     required: false
      filename: c:\Users\mickm\eclipse-workspace\mq-metrics\mq-metrics\mySavedMetrics.json
 ibm:
   mq:
@@ -15,14 +15,14 @@ ibm:
     queueManager: QMAP01
     channel: ADMIN.TLS.SVRCONN
     connName: localhost(1480)
-    sslCipherSpec1: TLS_RSA_WITH_AES_256_CBC_SHA256
-    sslCipherSpec: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+    sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
+    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
     useSSL: true
     user: MQMon01
     password: Passw0rd
     local: false
     keepMetricsWhenQueueManagerIsDown: false
-    clearMetrics: 5    
+    clearMetrics: 5
     objects:
       queues:
         include: "*"

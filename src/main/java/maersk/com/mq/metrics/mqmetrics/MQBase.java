@@ -1,5 +1,6 @@
 package maersk.com.mq.metrics.mqmetrics;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -18,11 +19,11 @@ public class MQBase {
 
 	protected static final String MQPREFIX = "mq:";
 
-	@Value("${application.debug:false}")
-    protected boolean _debug;
+	//@Value("${application.debug:false}")
+    //protected boolean _debug;
 	
-	@Value("${application.debugLevel:NONE}")
-	protected String _debugLevel;
+	//@Value("${application.debugLevel:DEBUG}")
+	//protected String _debugLevel;
 	
 	protected LEVEL lev;
 	public enum LEVEL {
@@ -34,6 +35,7 @@ public class MQBase {
 		TRACE
 	}
 
+	
 	protected void setDebugLevel(String level) {
 		this.lev = LEVEL.valueOf(level);
 	}
@@ -54,7 +56,9 @@ public class MQBase {
 		public int NOTSET = -1;
 		public int MULTIINSTANCE = 1;
 		public int NOT_MULTIINSTANCE = 0;
-		
+		public int MODE_LOCAL = 0;
+		public int MODE_CLIENT = 1;
+		public int EXIT_ERROR = 1;
 	}
 	
 	/*

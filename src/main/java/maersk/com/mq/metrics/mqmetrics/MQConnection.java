@@ -77,46 +77,67 @@ public class MQConnection extends MQBase {
 
     static Logger log = Logger.getLogger(MQConnection.class);
 
+	@Value("${application.debug:false}")
+    protected boolean _debug;
+	
+	@Value("${application.debugLevel:NONE}")
+	protected String _debugLevel;
+    
 	@Value("${application.save.metrics.required:false}")
     private boolean summaryRequired;
 
 	//
-	private boolean onceOnly = true;
+	//private boolean onceOnly = true;
+	//public void setOnceOnly(boolean v) {
+	//	this.onceOnly = v;
+	//}
+	//public boolean getOnceOnly() {
+	//	return this.onceOnly;
+	//}
+	
+	@Value("${ibm.mq.multiInstance:false}")
+	private boolean multiInstance;
+	public boolean isMultiInstance() {
+		return this.multiInstance;
+	}
 	
 	// taken from connName
-	private String hostName;
-
-	@Value("${ibm.mq.multiInstance:false}")
-	private Boolean multiInstance;
-
+	//private String hostName;
+	
 	@Value("${ibm.mq.queueManager}")
 	private String queueManager;
 	
 	// hostname(port)
-	@Value("${ibm.mq.connName}")
-	private String connName;	
-	@Value("${ibm.mq.channel}")
-	private String channel;
+	//@Value("${ibm.mq.connName}")
+	//private String connName;	
+	//@Value("${ibm.mq.channel}")
+	//private String channel;
 
 	// taken from connName
-	private int port;
+	//private int port;
 	
-	@Value("${ibm.mq.user}")
-	private String userId;
-	@Value("${ibm.mq.password}")
-	private String password;
-	@Value("${ibm.mq.sslCipherSpec}")
-	private String cipher;
+	//@Value("${ibm.mq.user}")
+	//private String userId;
+	//@Value("${ibm.mq.password}")
+	//private String password;
+	//@Value("${ibm.mq.sslCipherSpec}")
+	//private String cipher;
 	
 	@Value("${ibm.mq.local:false}")
 	private boolean local;
-
+	public boolean isRunningLocal() {
+		return this.local;
+	}
+	
 	@Value("${ibm.mq.keepMetricsWhenQueueManagerIsDown:false}")
 	private boolean keepMetricsWhenQueueManagerIsDown;
 	
 	//
 	@Value("${ibm.mq.useSSL:false}")
 	private boolean bUseSSL;
+	public boolean usingSSL() {
+		return this.bUseSSL;
+	}
 	
 	@Value("${ibm.mq.security.truststore:}")
 	private String truststore;
@@ -149,9 +170,10 @@ public class MQConnection extends MQBase {
     @Autowired
     public pcfChannel pcfChannel;
     
+    @Autowired
+    public MQMetricsQueueManager mqMetricsQueueManager;
+    
     public MQMetricSummary metricSummary;
-
-
 
     @Bean
     public pcfQueueManager QueueManager() {
@@ -172,23 +194,28 @@ public class MQConnection extends MQBase {
     	return this.metricSummary;
     }
 
-    //@PostConstruct
-
     @Bean
     @DependsOn("MetricsSummary")
     public pcfChannel Channel() {
     	return new pcfChannel(this.metricSummary);
     }
 
+    @Bean
+    public MQMetricsQueueManager CreateMetricsQueueManager() {
+    	return new MQMetricsQueueManager();
+    }
+    
 	// Constructor
-	private MQConnection() {
+	public MQConnection() {
 	}
 	
 	@PostConstruct
 	public void setProperties() {
+		
 		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("MQConnection: Object created"); }
 		setDebugLevel();
 		this.pcfChannel.loadProperties(this.summaryRequired);
+		
 	}
 	
 	/*
@@ -227,6 +254,7 @@ public class MQConnection extends MQBase {
 				|| getDebugLevel() == LEVEL.DEBUG) { 
 					log.warn("PCFException: ReasonCode " + p.getReason());
 			}
+			if (getDebugLevel() == LEVEL.TRACE) { p.printStackTrace(); }
 			closeQMConnection();
 			queueManagerIsNotRunning(p.getReason());
 			
@@ -237,6 +265,7 @@ public class MQConnection extends MQBase {
 					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("MQException " + m.getMessage());
 			}
+			if (getDebugLevel() == LEVEL.TRACE) { m.printStackTrace(); }
 			closeQMConnection();
 			queueManagerIsNotRunning(m.getReason());
 			this.messageAgent = null;
@@ -248,6 +277,7 @@ public class MQConnection extends MQBase {
 					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("IOException " + i.getMessage());
 			}
+			if (getDebugLevel() == LEVEL.TRACE) { i.printStackTrace(); }
 			closeQMConnection();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 			
@@ -258,6 +288,7 @@ public class MQConnection extends MQBase {
 					|| getDebugLevel() == LEVEL.DEBUG) { 
 				log.error("Exception " + e.getMessage());
 			}
+			if (getDebugLevel() == LEVEL.TRACE) { e.printStackTrace(); }
 			closeQMConnection();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 		}
@@ -268,9 +299,13 @@ public class MQConnection extends MQBase {
 	 */
 	private void setDebugLevel() {
 		if (this._debug) {
-			this._debugLevel = "DEBUG";
+			if (this._debugLevel.equals("NONE")) {
+					this._debugLevel = "DEBUG";
+			}
 		}
-		
+		if (!this._debug) {
+			this._debugLevel = "NONE";
+		}
 		setDebugLevel(this._debugLevel);
 		
 	}
@@ -297,13 +332,19 @@ public class MQConnection extends MQBase {
 	 * @throws MQException
 	 * @throws MQDataException 
 	 */
-	private void createQueueManagerConnection() throws MQException, MQDataException {
+	
+	public void createQueueManagerConnection() throws MQException, MQDataException {
 		
-		setRunMode();
+		this.queManager = this.mqMetricsQueueManager.createQueueManager();
+		this.messageAgent = this.mqMetricsQueueManager.createMessageAgent(this.queManager);
+	}
+	
+	/*
+	public void createQueueManagerConnection() throws MQException, MQDataException {
 		
 		Hashtable<String, Comparable> env = null;
 		
-		if (!this.local) { 
+		if (!isRunningLocal()) { 
 			getEnvironmentVariables();
 			if (getDebugLevel() == LEVEL.INFO) { log.info("Attempting to connect using a client connection"); }
 
@@ -320,6 +361,7 @@ public class MQConnection extends MQBase {
 			 * ...... then the connection is used like OPTIONAL
 			 */
 			
+	/*
 			if (!StringUtils.isEmpty(this.userId)) {
 				env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
 			}
@@ -328,8 +370,8 @@ public class MQConnection extends MQBase {
 			}
 			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 	
-			if (this.multiInstance) {
-				if (this.onceOnly) {
+			if (isMultiInstance()) {
+				if (getOnceOnly()) {
 					if (getDebugLevel() == LEVEL.INFO) { 
 						log.info("MQ Metrics is running in multiInstance mode");
 					}
@@ -343,13 +385,13 @@ public class MQConnection extends MQBase {
 				log.debug("Queue Man	: " + this.queueManager);
 				log.debug("User		: " + this.userId);
 				log.debug("Password	: **********");
-				if (this.bUseSSL) {
+				if (usingSSL()) {
 					log.debug("SSL is enabled ....");
 				}
 			}
 			
 			// If SSL is enabled (default)
-			if (this.bUseSSL) {
+			if (usingSSL()) {
 				if (!StringUtils.isEmpty(this.truststore)) {
 					System.setProperty("javax.net.ssl.trustStore", this.truststore);
 			        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
@@ -391,18 +433,19 @@ public class MQConnection extends MQBase {
 			
 		}
 		
-		if (this.onceOnly) {
+		if (getOnceOnly()) {
 			log.info("Attempting to connect to queue manager " + this.queueManager);
-			this.onceOnly = false;
+			setOnceOnly(false);
 		}
-		
+	*/	
 		/*
 		 * Connect to the queue manager 
 		 * ... local connection : application connection in local bindings
 		 * ... client connection: application connection in client mode 
 		 */
+		/*
 		if (this.queManager == null) {
-			if (this.local) {
+			if (isRunningLocal()) {
 				this.queManager = new MQQueueManager(this.queueManager);
 				log.info("Local connection established ");
 			} else {
@@ -417,6 +460,7 @@ public class MQConnection extends MQBase {
 		/*
 		 * Establish a PCF agent
 		 */
+		/*
 		log.info("Creating PCFAgent ");
 		if (this.messageAgent == null) {
 			this.messageAgent = new PCFMessageAgent(queManager);
@@ -426,15 +470,18 @@ public class MQConnection extends MQBase {
 			
 		}
 	}
-
+	*/
+	
 	// Set Run mode
 	// 0 - local
 	// 1 - client
+	// Move into MetricQueueManager
+	/*
 	private void setRunMode() {
 
-		int mode = 0;
-		if (!this.local) {
-			mode = 1;
+		int mode = MQPCFConstants.MODE_LOCAL;
+		if (!isRunningLocal()) {
+			mode = MQPCFConstants.MODE_CLIENT;
 		}
 		
 		AtomicInteger rMode = runModeMap.get(runMode);
@@ -449,19 +496,23 @@ public class MQConnection extends MQBase {
 		
 		
 	}
+	*/
+	
 	/*
 	 * Get MQ details from environment variables
 	 */
-	private void getEnvironmentVariables() {
+	
+	
+	//private void getEnvironmentVariables() {
 		
 		/*
 		 * ALL parameter are passed in the application.yaml file ...
 		 *    These values can be overrrided using an application-???.yaml file per environment
 		 *    ... or passed in on the command line
 		 */
-		
+		/*
 		// Split the host and port number from the connName ... host(port)
-		if (!this.connName.equals("")) {
+		if (!validConnectionName()) {
 			Pattern pattern = Pattern.compile("^([^()]*)\\(([^()]*)\\)(.*)$");
 			Matcher matcher = pattern.matcher(this.connName);	
 			if (matcher.matches()) {
@@ -469,43 +520,63 @@ public class MQConnection extends MQBase {
 				this.port = Integer.parseInt(matcher.group(2).trim());
 			} else {
 				log.error("While attempting to connect to a queue manager, the connName is invalid ");
-				System.exit(1);				
+				System.exit(MQPCFConstants.EXIT_ERROR);				
 			}
 		} else {
 			log.error("While attempting to connect to a queue manager, the connName is missing  ");
-			System.exit(1);
+			System.exit(MQPCFConstants.EXIT_ERROR);
 			
 		}
 
 		/*
 		 * If we dont have a user or a certs are not being used, then we cant connect ... unless we are in local bindings
 		 */
-		if (this.userId.equals("")) {
-			if (this.bUseSSL == false) {
-				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
-				System.exit(1);
-			}
-		}
+//		if (validateUserId()) {
+//			if (!usingSSL()) {
+//				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
+//				System.exit(MQPCFConstants.EXIT_ERROR);
+//			}
+//		}
 
-		// if no use, for get it ...
-		if (this.userId == null) {
-			return;
-		}
+		// if no user, forget it ...
+//		if (this.userId == null) {
+//			return;
+//		}
 
 		/*
 		 * dont allow mqm user
 		 */
-		if (!this.userId.equals("")) {
-			if ((this.userId.equals("mqm") || (this.userId.equals("MQM")))) {
-				log.error("The MQ channel USERID must not be running as 'mqm' ");
-				System.exit(1);
-			}
-		} else {
-			this.userId = null;
-			this.password = null;
-		}
+//		if (!validateUserId()) {
+//			if ((validateUserId("mqm") || (validateUserId("MQM")))) {
+//				log.error("The MQ channel USERID must not be running as 'mqm' ");
+//				System.exit(MQPCFConstants.EXIT_ERROR);
+//			}
+//		} else {
+//			this.userId = null;
+//			this.password = null;
+//		}
 	
+//	}
+
+	
+	/*
+	 * Validate connection name and userID
+	 */
+	/*
+	private boolean validConnectionName() {
+		return (this.connName.equals(""));
 	}
+	private boolean validateUserId() {
+		return (this.userId.equals(""));		
+	}
+	private boolean validateUserId(String v) {
+		boolean ret = false;
+		if (this.userId.equals(v)) {
+			ret = true;
+		}
+		return ret;
+	}
+	*/
 	
 	/*
 	 * When the queue manager isn't running, send back a status of inactive 
@@ -513,7 +584,7 @@ public class MQConnection extends MQBase {
 	private void queueManagerIsNotRunning(int status) {
 
 		if (this.pcfQueueManager != null) {
-			this.pcfQueueManager.notRunning(this.queueManager, this.multiInstance, status);
+			this.pcfQueueManager.notRunning(this.queueManager, isMultiInstance(), status);
 		}
 
 		/*
@@ -612,6 +683,9 @@ public class MQConnection extends MQBase {
     @PreDestroy
     public void closeQMConnection() {
 
+    	this.mqMetricsQueueManager.CloseConnection(this.queManager, this.messageAgent);
+    	
+    	/*
     	try {
     		if (this.queManager.isConnected()) {
 	    		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("Closing MQ Connection "); }
@@ -629,6 +703,7 @@ public class MQConnection extends MQBase {
     	} catch (Exception e) {
     		// do nothing
     	}
+    	*/
     	
     	this.queManager = null;
 		this.messageAgent = null;
