@@ -107,6 +107,9 @@ public class pcfListener extends MQBase {
 			resetMetrics();
 		}
 		
+		/*
+		 * Get a list of listeners
+		 */
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER);
 		pcfRequest.addParameter(MQConstants.MQCACH_LISTENER_NAME, "*");
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
@@ -123,16 +126,20 @@ public class pcfListener extends MQBase {
 		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfListener: inquire listener response"); }
         int[] pcfStatAttrs = { 	MQConstants.MQIACF_ALL };
         
-		// For each response back, loop to process 
+		/*
+		 * For each listener, process the message 
+		 */
         try {
 	        for (PCFMessage pcfMsg : pcfResponse) {	
 				int portNumber = MQPCFConstants.BASE;
 				int type = MQPCFConstants.NOTSET;
 				String listenerName = 
 						pcfMsg.getStringParameterValue(MQConstants.MQCACH_LISTENER_NAME).trim(); 
+				
 				int listType = 
 						pcfMsg.getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
 				String typeName = typeList.get(listType).trim();			
+				
 				if (checkListenNames(listenerName.trim())) {
 					
 					// Correct listener type ? Only interested in TCP
@@ -142,8 +149,11 @@ public class pcfListener extends MQBase {
 						PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER_STATUS);
 						pcfReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, listenerName);
 						pcfReq.addParameter(MQConstants.MQIACF_LISTENER_STATUS_ATTRS, pcfStatAttrs);
-		
 				        PCFMessage[] pcfResp = null;
+				        
+				        /*
+				         * Listener status
+				         */
 						try {			
 							pcfResp = this.messageAgent.send(pcfReq);
 							int listenerStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS);					

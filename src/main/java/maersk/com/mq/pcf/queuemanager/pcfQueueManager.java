@@ -38,6 +38,7 @@ import io.micrometer.core.instrument.Tags;
 import io.micrometer.core.instrument.search.RequiredSearch;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQConnection;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 import java.util.Collections.*;
@@ -108,21 +109,24 @@ public class pcfQueueManager extends MQBase {
 		} else {
 			value.set(this.resetIterations);
 		}
-
 	}
 	
 	/*
 	 * Get the cluster name of the queue manager
 	 */
 	public void checkQueueManagerCluster() {
-		
+
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: checkQueueManagerCluster"); }
+
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
         
         PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CLUSTER_Q_MGR);
         pcfRequest.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, this.queueManager); 
         pcfRequest.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, pcfParmAttrs);
        
-        // if an error occurs, ignore it, as the queue manager may not belong to a cluster
+        /*
+         *  if an error occurs, ignore it, as the queue manager may not belong to a cluster
+         */
         try {
 	        PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);
 	        PCFMessage response = pcfResponse[0];
@@ -130,8 +134,7 @@ public class pcfQueueManager extends MQBase {
 	        setQueueManagerClusterName(clusterNames.trim());
 
         } catch (Exception e) {
-       // 	if (this._debug) { log.info("Queue manager " + this.queueManager.trim() + " does not belong to a cluster"); }
-        	
+    		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: Exception, queue manager doesn't belong to a cluster"); }
         }	
 	}
 	
@@ -142,26 +145,34 @@ public class pcfQueueManager extends MQBase {
 	 */
 	public void updateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
 
-		// Enquire on the queue manager ...
+		/*
+		 *  Inquire on the queue manager ...
+		 */
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_MGR);
 		pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_ATTRS, pcfParmAttrs);
 		PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);		
 		PCFMessage response = pcfResponse[0];
 	
-		// Save the queue monitoring attribute to be used later
+		/*
+		 *  Save the queue monitoring attribute to be used later
+		 */
 		int queueMon = response.getIntParameterValue(MQConstants.MQIA_MONITORING_Q);
 		setQueueMonitoringFromQmgr(queueMon);
 	
-		// Send a queue manager status request
+		/*
+		 *  Send a queue manager status request
+		 */
 		pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_MGR_STATUS);
 		pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_STATUS_ATTRS, pcfParmAttrs);
 		pcfResponse = this.messageAgent.send(pcfRequest);		
 		response = pcfResponse[0];       	
 		
-		// queue manager status
+		/*
+		 *  queue manager status
+		 */
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: queue manager status"); }
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
-		
 		AtomicInteger qmStat = qmMap.get(lookupStatus + "_" + this.queueManager);
 		if (qmStat == null) {
 			qmMap.put(lookupStatus + "_" + this.queueManager, meterRegistry.gauge(lookupStatus, 
@@ -173,7 +184,10 @@ public class pcfQueueManager extends MQBase {
 			qmStat.set(qmStatus);
 		}
 
-		// command server status
+		/*
+		 *  command server status
+		 */
+		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: command server status"); }
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		AtomicInteger value = cmdMap.get(cmdLookupStatus + "_" + this.queueManager);
 		if (value == null) {
@@ -225,7 +239,9 @@ public class pcfQueueManager extends MQBase {
 			value.set(val);
 		}
 				
-		// Set the queue manager status to indicate that its in multi-instance
+		/*
+		 *  Set the queue manager status to indicate that its in multi-instance
+		 */
 		val = MQPCFConstants.NOT_MULTIINSTANCE;
 		if (mi) {
 			val = MQPCFConstants.MULTIINSTANCE;
@@ -253,5 +269,4 @@ public class pcfQueueManager extends MQBase {
 		
 	}
 
-	
 }

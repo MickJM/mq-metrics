@@ -92,6 +92,9 @@ public class pcfQueue extends MQBase {
     
     }
 	
+	/*
+	 * Constructor
+	 */
     public pcfQueue() {
 		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("pcfQueue: Object created"); }
     }
@@ -122,6 +125,9 @@ public class pcfQueue extends MQBase {
 		pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, "*");
 		pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, MQConstants.MQQT_ALL);		
         
+		/*
+		 * Get a list of queues
+		 */
 		PCFMessage[] pcfResponse = null;
 		try {
 			pcfResponse = this.messageAgent.send(pcfRequest);
@@ -132,7 +138,7 @@ public class pcfQueue extends MQBase {
 		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("pcfQueue: inquire queue response"); }
 
 		/*
-		 * For each response, get the MQ details
+		 * For each queue, build the response
 		 */
 		for (PCFMessage pcfMsg : pcfResponse) {
 			String queueName = null;
@@ -152,9 +158,9 @@ public class pcfQueue extends MQBase {
 	 				String queueType = getQueueType(qType);
 					String queueCluster = "";
 					String queueUsage = "";
-					
+
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue local"); }
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue local"); }
 						qUsage = pcfMsg.getIntParameterValue(MQConstants.MQIA_USAGE);
 						queueUsage = "Normal";
 						if (qUsage != MQConstants.MQUS_NORMAL) {
@@ -175,6 +181,9 @@ public class pcfQueue extends MQBase {
 					PCFMessage pcfInqStat = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
 					pcfInqStat.addParameter(MQConstants.MQCA_Q_NAME, queueName);
 
+					/*
+					 * Reset Queue status
+					 */
 					PCFMessage[] pcfResStat = null;
 					PCFMessage[] pcfResResp = null;
 					if (qType != MQConstants.MQQT_ALIAS) {
@@ -187,7 +196,9 @@ public class pcfQueue extends MQBase {
 
 					}
 					
-					// Queue depth
+					/*
+					 * Queue depth
+					 */
 					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: queue depth"); }
 					AtomicInteger qdep = queueMap.get(lookupQueDepth + "_" + queueName);
 					if (qdep == null) {
@@ -205,10 +216,12 @@ public class pcfQueue extends MQBase {
 					}
 					if ((LEVEL)getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: queue depth: " + queueName +": " + value); }
 					
-					// OpenInput count
+					/*
+					 * Open input count
+					 */
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue input count"); }
 					int openInvalue = 0;
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue input count"); }
 						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
 						AtomicInteger openIn = openInMap.get(lookupOpenIn + "_" + queueName);
 						if (openIn == null) {
@@ -227,10 +240,12 @@ public class pcfQueue extends MQBase {
 
 					}
 
-					// Open output count
+					/*
+					 * Open output count
+					 */
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue output count"); }
 					int openOutvalue = 0;
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue output count"); }
 						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 						AtomicInteger openOut = openOutMap.get(lookupOpenOut + "_" + queueName);
 						if (openOut == null) {
@@ -253,9 +268,11 @@ public class pcfQueue extends MQBase {
 						processQueueHandlers(queueName, queueCluster);
 					}
 
-					// Maximum queue depth
+					/*
+					 * Maximum queue depth
+					 */
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue depth"); }
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue depth"); }
 						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
 						AtomicInteger openMax = maxQueMap.get(lookupMaxDepth + "_" + queueName);
 						if (openMax == null) {
@@ -281,17 +298,20 @@ public class pcfQueue extends MQBase {
 					// MQMON_LOW	- Monitoring data collection is turned on, with low ratio of data collection
 					// MQMON_MEDIUM	- Monitoring data collection is turned on, with moderate ratio of data collection
 					// MQMON_HIGH	- Monitoring data collection is turned on, with high ratio of data collection
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue LAST GET DATE : " + queueName); }
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue LAST GET DATE : " + queueName); }
 						if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
 								|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
 							String lastGetDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
 							String lastGetTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
 							if (!(lastGetDate.equals(" ") && lastGetTime.equals(" "))) {
 					
-						// 17/10/2019 Amened to correctly calculate the epoch value			
+								/*
+								 *  17/10/2019 - Amended to correctly calculate the epoch value			
+								 */
 								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
 								long ld = dt.getTime();
+								
 								// Last Get date and time
 								AtomicLong getDate = lastGetMap.get(lookupLastGetDateTime + "_" + queueName);
 								if (getDate == null) {
@@ -315,12 +335,15 @@ public class pcfQueue extends MQBase {
 							if (!(lastPutDate.equals(" ") && lastPutTime.equals(" "))) {
 								if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue LAST PUT DATE : " + queueName); }
 								
-					// 17/10/2019 amended to correctly calculate the epoch value				
+								/*
+								 *  17/10/2019 - amended to correctly calculate the epoch value				
+								 */
 								Date dt = formatter.parse(lastPutDate + " " + lastPutTime);
 								long ld = dt.getTime();
+								
 								// Last put date and time
 								AtomicLong lastDate = lastPutMap.get(lookupLastPutDateTime + "_" + queueName);
-								if (getDebugLevel() == LEVEL.TRACE ) { log.info("pcfQueue: lastDate : " + lastDate); }
+								if (getDebugLevel() == LEVEL.TRACE ) { log.trace("pcfQueue: lastDate : " + lastDate); }
 
 								if (lastDate == null) {
 									lastPutMap.put(lookupLastPutDateTime + "_" + queueName, meterRegistry.gauge(lookupLastPutDateTime, 
@@ -338,8 +361,10 @@ public class pcfQueue extends MQBase {
 
 							}										
 							
+							/*
+							 *  Oldest message age
+							 */
 							if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue old-age"); }
-							// Oldest message age
 							int old = pcfResStat[0].getIntParameterValue(MQConstants.MQIACF_OLDEST_MSG_AGE);
 							AtomicInteger oldAge = oldAgeMap.get(lookupOldMsgAge + "_" + queueName);
 							if (oldAge == null) {
@@ -358,10 +383,12 @@ public class pcfQueue extends MQBase {
 
 						}
 					}
-					
+
+					/*
+					 *  Messages DeQueued
+					 */
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue de-queued"); }
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue de-queued"); }
-						// Messages DeQueued
 						int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
 						AtomicInteger deQue = deQueMap.get(lookupdeQueued + "_" + queueName);
 						if (deQue == null) {
@@ -380,8 +407,11 @@ public class pcfQueue extends MQBase {
 
 					}
 
+					/*
+					 *  Messages EnQueued
+					 */
+					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue en-queued"); }
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueue: inquire queue en-queued"); }
 						// Messages EnQueued
 						int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
 						AtomicInteger enQue = enQueMap.get(lookupenQueued + "_" + queueName);
@@ -406,7 +436,7 @@ public class pcfQueue extends MQBase {
 			} catch (Exception e) {
 				if ((getDebugLevel() == LEVEL.DEBUG )
 						|| (getDebugLevel() == LEVEL.TRACE )
-						|| (getDebugLevel() == LEVEL.WARN )) { log.warn("pcfQueue: unable to get queue metrcis " + e.getMessage()); }
+						|| (getDebugLevel() == LEVEL.WARN )) { log.warn("pcfQueue: unable to get queue metrcis : " + e.getMessage()); }
 				
 			}
 		}
@@ -446,13 +476,10 @@ public class pcfQueue extends MQBase {
 						);
 			} else {
 				proc.set(state);
-			}
-			
+			}	
 			seq++;
-		}
-				
+		}			
 	}
-	
 	
 	/*
 	 * Check for the queue names

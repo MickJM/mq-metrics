@@ -99,10 +99,16 @@ public class pcfChannel extends MQBase {
 		
     }
 
+    /*
+     * If needed ...
+     */
     @PostConstruct
     private void PostMethod() {
     }
     
+    /*
+     * Load properties for metrics summary if needed
+     */
     public void loadProperties(boolean summaryRequired) {
     	log.debug("Channel loadProperties ....");    	
 		this.summaryRequired = summaryRequired;
@@ -181,14 +187,15 @@ public class pcfChannel extends MQBase {
 					pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_ATTRS, pcfStatAttrs);
 						
 					// loop through each response
-					// ... for now, only show that the channel is running and not ALL instances that is using the channel
-					// ... this is becuase of the way the prometheus metrics are registered
 			        PCFMessage[] pcfResp = null;
 					try {
 						pcfResp = this.messageAgent.send(pcfReq);
 						if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: inquire channel status response "); }
 						PCFMessage pcfStatus = pcfResp[MQPCFConstants.BASE];
-							
+			
+						/*
+						 * Channel status
+						 */
 						int channelStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
 						AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName );
 						if (channels == null) {
@@ -241,12 +248,14 @@ public class pcfChannel extends MQBase {
 						
 					}
 	
-					// Add IP address details here ...					
 					long msgsOverChannels = 0l;
 					int bytesReceviedOverChannels = MQPCFConstants.BASE;
 					int bytesSentOverChannels = MQPCFConstants.BASE;
 					if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: inquire messages over channels"); }
-										
+						
+					/*
+					 * Messages received
+					 */
 					try {
 						
 						// Count the messages over the number of threads on each channel
@@ -296,7 +305,10 @@ public class pcfChannel extends MQBase {
 
 					}
 					
-					
+
+					/*
+					 * Bytes received over the channel
+					 */
 					try {
 						// Count the messages over the number of threads on each channel
 						for (PCFMessage pcfM : pcfResp) {
@@ -357,7 +369,10 @@ public class pcfChannel extends MQBase {
 						}
 						
 					}
-	
+
+					/*
+					 * Bytes sent over the channel
+					 */
 					try {
 						// Count the messages over the number of threads on each channel
 						for (PCFMessage pcfM : pcfResp) {
@@ -408,6 +423,9 @@ public class pcfChannel extends MQBase {
 		
 		}
 		
+		/*
+		 * If the summary file is required, save the details
+		 */
 		if (this.summaryRequired) {
 			this.metricSummaryCount++;
 			if (getDebugLevel() == LEVEL.INFO) { log.info("SummaryCount = " + this.metricSummaryCount); }
@@ -525,6 +543,7 @@ public class pcfChannel extends MQBase {
 		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfChannel: resetting metrics"); }
 		deleteMetrics();
 	}	
+	
 	/*
 	 * Reset the metrics
 	 */

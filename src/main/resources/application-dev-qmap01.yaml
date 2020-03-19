@@ -1,6 +1,6 @@
 application:
   debug: true
-  debugLevel: INFO
+  debugLevel: TRACE
   save:
     metrics:
      required: false

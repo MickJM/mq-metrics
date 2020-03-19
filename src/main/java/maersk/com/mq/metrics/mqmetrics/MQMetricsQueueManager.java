@@ -154,7 +154,7 @@ public class MQMetricsQueueManager extends MQBase {
 			
 			getEnvironmentVariables();
 			if (getDebugLevel() == LEVEL.INFO) { log.info("Attempting to connect using a client connection"); }
-
+			
 			env = new Hashtable<String, Comparable>();
 			env.put(MQConstants.HOST_NAME_PROPERTY, getHostName());
 			env.put(MQConstants.CHANNEL_PROPERTY, getChannelName());
@@ -166,8 +166,7 @@ public class MQMetricsQueueManager extends MQBase {
 			 * ... if CHCKCLNT is set to OPTIONAL or RECDADM
 			 * ... RECDADM will use the username and password if provided ... if a password is not provided
 			 * ...... then the connection is used like OPTIONAL
-			 */
-		
+			 */		
 		
 			if (!StringUtils.isEmpty(getUserId())) {
 				env.put(MQConstants.USER_ID_PROPERTY, getUserId()); 
