@@ -10,16 +10,14 @@ package maersk.com.mq.pcf.listener;
 
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.annotation.PostConstruct;
+
 import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import com.ibm.mq.MQException;
 import com.ibm.mq.constants.MQConstants;
@@ -28,10 +26,9 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @Component
 public class pcfListener extends MQBase {
@@ -88,7 +85,18 @@ public class pcfListener extends MQBase {
     }
 
     /*
-     * Get the listeners ...     * 
+     * When the class is fully created ...
+     */
+    @PostConstruct
+    private void PostMethod() {
+    	log.info("Excluding listeners ;");
+    	for (String s : this.excludeListeners) {
+    		log.info(s);
+    	}
+    }
+    
+    /*
+     * Get the listeners ... 
      */
 	public void UpdateListenerMetrics() throws MQException, IOException, MQDataException {
 

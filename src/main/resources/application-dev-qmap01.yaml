@@ -1,6 +1,6 @@
 application:
-  debug: true
-  debugLevel: TRACE
+  debug: false
+  debugLevel: DEBUG
   save:
     metrics:
      required: false
@@ -23,13 +23,16 @@ ibm:
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
+    json:
+      sort: true
+      order: ascending
     objects:
       queues:
         include: "*"
         exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
       channels:
         include: "*"
-        exclude: SYSTEM.
+        exclude: SYSTEM.,ADMIN.TLS.SVRCONN
       listeners:
         include: "*"
         exclude: SYSTEM.
@@ -47,7 +50,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: info, health, prometheus      
+        include: info, health, prometheus, metrics      
   endpoint:
     health:
       show-details: always        

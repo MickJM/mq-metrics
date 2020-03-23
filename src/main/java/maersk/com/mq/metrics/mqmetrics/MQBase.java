@@ -1,6 +1,5 @@
 package maersk.com.mq.metrics.mqmetrics;
 
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -12,7 +11,7 @@ import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Meter.Id;
 import io.micrometer.core.instrument.MeterRegistry;
 
-public class MQBase {
+public class MQBase implements MQPCFConstants {
 
 	@Autowired
 	public MeterRegistry meterRegistry;
@@ -26,7 +25,7 @@ public class MQBase {
 	//protected String _debugLevel;
 	
 	protected LEVEL lev;
-	public enum LEVEL {
+	public enum LEVEL {	
 		NONE,
 		INFO,
 		DEBUG,
@@ -48,18 +47,7 @@ public class MQBase {
 	protected int CONST_CLEARMETRICS;
 
 	protected int clearMetrics;
-	
-	public interface MQPCFConstants {
-		
-		public int BASE = 0;
-		public int PCF_INIT_VALUE = 0;
-		public int NOTSET = -1;
-		public int MULTIINSTANCE = 1;
-		public int NOT_MULTIINSTANCE = 0;
-		public int MODE_LOCAL = 0;
-		public int MODE_CLIENT = 1;
-		public int EXIT_ERROR = 1;
-	}
+
 	
 	/*
 	 * Delete the appropriate metric

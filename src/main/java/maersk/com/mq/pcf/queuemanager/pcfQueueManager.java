@@ -11,37 +11,24 @@ package maersk.com.mq.pcf.queuemanager;
  */
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
 
 import com.ibm.mq.MQException;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.search.RequiredSearch;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQConnection;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
-import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
-
-import java.util.Collections.*;
+import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @Component
 public class pcfQueueManager extends MQBase {

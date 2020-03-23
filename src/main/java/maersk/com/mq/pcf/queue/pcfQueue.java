@@ -15,11 +15,11 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
+import javax.annotation.PostConstruct;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,11 +31,8 @@ import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
-import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 @Component
 public class pcfQueue extends MQBase {
@@ -92,6 +89,17 @@ public class pcfQueue extends MQBase {
     
     }
 	
+    /*
+     * When the class is fully created ...
+     */
+    @PostConstruct
+    private void PostMethod() {
+    	log.info("Excluding queues ;");
+    	for (String s : this.excludeQueues) {
+    		log.info(s);
+    	}
+    }
+
 	/*
 	 * Constructor
 	 */

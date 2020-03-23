@@ -9,17 +9,9 @@ package maersk.com.mq.pcf.channel;
  */
 
 import java.io.IOException;
-import java.sql.Timestamp;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -27,7 +19,6 @@ import javax.annotation.PostConstruct;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
@@ -37,11 +28,9 @@ import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
-import io.micrometer.core.instrument.Meter;
-import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
@@ -100,10 +89,14 @@ public class pcfChannel extends MQBase {
     }
 
     /*
-     * If needed ...
+     * When the class is fully created ...
      */
     @PostConstruct
     private void PostMethod() {
+    	log.info("Excluding channels ;");
+    	for (String s : this.excludeChannels) {
+    		log.info(s);
+    	}
     }
     
     /*

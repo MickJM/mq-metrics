@@ -10,67 +10,34 @@ package maersk.com.mq.metrics.mqmetrics;
  *              managers can be checked
  */
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.sql.Timestamp;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.validation.constraints.Null;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.DependsOn;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
-import com.ibm.mq.MQEnvironment;
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
-import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
-import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
-import io.prometheus.client.Collector;
-import io.prometheus.client.Collector.MetricFamilySamples;
-import io.prometheus.client.CollectorRegistry;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 //import maersk.com.mq.metricsummary.Channels;
 //import maersk.com.mq.metricsummary.Channel;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
+import maersk.com.mq.json.controller.JSONController;
 
 @Component
 public class MQConnection extends MQBase {
@@ -126,10 +93,10 @@ public class MQConnection extends MQBase {
 
     private MQQueueManager queManager = null;
     private PCFMessageAgent messageAgent = null;
-    private PCFAgent agent = null;
+    //private PCFAgent agent = null;
     
     // MAP details for the metrics
-    private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
+    //private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
 	protected static final String runMode = MQPREFIX + "runMode";
 
     //
@@ -141,7 +108,7 @@ public class MQConnection extends MQBase {
     public pcfQueue pcfQueue;
     @Autowired
     public pcfChannel pcfChannel;
-    
+
     @Autowired
     public MQMetricsQueueManager mqMetricsQueueManager;
     
@@ -176,6 +143,14 @@ public class MQConnection extends MQBase {
     public MQMetricsQueueManager CreateMetricsQueueManager() {
     	return new MQMetricsQueueManager();
     }
+    
+    // 
+    @Bean
+    public JSONController JSONController() {
+    	return new JSONController();
+    }
+    @Autowired
+    private JSONController jsonapi;
     
 	// Constructor
 	public MQConnection() {
@@ -221,7 +196,7 @@ public class MQConnection extends MQBase {
 					log.warn("PCFException: ReasonCode " + p.getReason());
 			}
 			if (getDebugLevel() == LEVEL.TRACE) { p.printStackTrace(); }
-			closeQMConnection();
+			closeQMConnection(p.getReason());
 			queueManagerIsNotRunning(p.getReason());
 			
 		} catch (MQException m) {
@@ -232,7 +207,7 @@ public class MQConnection extends MQBase {
 				log.error("MQException " + m.getMessage());
 			}
 			if (getDebugLevel() == LEVEL.TRACE) { m.printStackTrace(); }
-			closeQMConnection();
+			closeQMConnection(m.getReason());
 			queueManagerIsNotRunning(m.getReason());
 			this.messageAgent = null;
 			
@@ -292,6 +267,8 @@ public class MQConnection extends MQBase {
 
 		this.pcfChannel.setMessageAgent(this.messageAgent);		
 		this.pcfChannel.setDebugLevel(this._debugLevel);
+		
+		//this.jsonapi.setDebugLevel(this._debugLevel);
 		
 	}
 
@@ -431,15 +408,32 @@ public class MQConnection extends MQBase {
 	 * Disconnect cleanly from the queue manager
 	 */
     @PreDestroy
-    public void closeQMConnection() {
+    public void disconnect() {
+    	closeQMConnection();
+    }
+    
+    /*
+     * Disconnect, showing the reason
+     */
+    public void closeQMConnection(int reasonCode) {
 
+		log.info("Disconnected from the queue manager"); 
+		log.info("Reason code: " + reasonCode);
     	this.mqMetricsQueueManager.CloseConnection(this.queManager, this.messageAgent);
-    	
     	this.queManager = null;
 		this.messageAgent = null;
 		
     }
 	        
+    public void closeQMConnection() {
+
+		log.info("Disconnected from the queue manager"); 
+    	this.mqMetricsQueueManager.CloseConnection(this.queManager, this.messageAgent);
+    	this.queManager = null;
+		this.messageAgent = null;
+		
+    }
+    
 }
 
 

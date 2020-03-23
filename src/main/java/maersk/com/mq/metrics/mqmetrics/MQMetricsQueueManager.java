@@ -16,11 +16,10 @@ import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
+//import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
 
 @Component
 public class MQMetricsQueueManager extends MQBase {
@@ -88,7 +87,6 @@ public class MQMetricsQueueManager extends MQBase {
 	@Value("${ibm.mq.sslCipherSpec}")
 	private String cipher;
 	
-	//
 	@Value("${ibm.mq.useSSL:false}")
 	private boolean bUseSSL;
 	public boolean usingSSL() {
@@ -116,7 +114,9 @@ public class MQMetricsQueueManager extends MQBase {
 		return this.local;
 	}
 	
-    // MAP details for the metrics
+    /*
+     *  MAP details for the metrics
+     */
     private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
 	protected static final String runMode = MQPREFIX + "runMode";
 	
@@ -140,6 +140,9 @@ public class MQMetricsQueueManager extends MQBase {
     private MQQueueManager queManager = null;
     private PCFMessageAgent messageAgent = null;
     
+    /*
+     * Constructor
+     */
 	public MQMetricsQueueManager() {
 	}
 	
