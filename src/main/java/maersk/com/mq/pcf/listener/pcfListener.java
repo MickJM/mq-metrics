@@ -29,6 +29,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 
 @Component
 public class pcfListener extends MQBase {
@@ -106,11 +107,13 @@ public class pcfListener extends MQBase {
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
-		this.clearMetrics++;
-		if (this.clearMetrics % CONST_CLEARMETRICS == 0) {
-			this.clearMetrics = 0;
-			if (getDebugLevel() == LEVEL.TRACE) {
+		setCounter();
+		if (getCounter() % getClearMetrics() == 0) {
+			setCounter(0);
+			if (getDebugLevel() == LEVEL.DEBUG 
+					|| getDebugLevel() == LEVEL.TRACE) {
 				log.trace("Clearing listener metrics");
+
 			}
 			resetMetrics();
 		}

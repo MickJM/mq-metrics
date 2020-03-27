@@ -264,7 +264,8 @@ public class MQConnection extends MQBase {
 
 		this.pcfQueue.setMessageAgent(this.messageAgent);
 		this.pcfQueue.setDebugLevel(this._debugLevel);
-
+		this.pcfQueue.setQueueManager(this.mqMetricsQueueManager);
+		
 		this.pcfChannel.setMessageAgent(this.messageAgent);		
 		this.pcfChannel.setDebugLevel(this._debugLevel);
 		

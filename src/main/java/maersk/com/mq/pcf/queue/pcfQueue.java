@@ -1,5 +1,7 @@
 package maersk.com.mq.pcf.queue;
 
+import java.io.DataInput;
+
 /*
  * Copyright 2019
  * Mick Moriarty - Maersk
@@ -15,6 +17,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -26,13 +29,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
+//import com.ibm.mq.MQMessage;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.pcf.MQCFGR;
+import com.ibm.mq.headers.pcf.MQCFH;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
+import maersk.com.mq.metrics.accounting.AccountingEntity;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
+import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 
 @Component
 public class pcfQueue extends MQBase {
@@ -65,7 +73,11 @@ public class pcfQueue extends MQBase {
     private Map<String,AtomicInteger>deQueMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>enQueMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>procMap = new HashMap<String,AtomicInteger>();
-
+    private Map<String,AtomicInteger>msgMaxPutPMsgSizeMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>msgMaxGetPMsgSizeMap = new HashMap<String,AtomicInteger>();
+//    private Map<String,AtomicInteger>msgMaxPutNMsgSizeMap = new HashMap<String,AtomicInteger>();
+//    private Map<String,AtomicInteger>msgMaxGetNMsgSizeMap = new HashMap<String,AtomicInteger>();
+    
 	protected static final String lookupQueDepth = MQPREFIX + "queueDepth";
 	protected static final String lookupOpenIn = MQPREFIX + "openInputCount";
 	protected static final String lookupOpenOut = MQPREFIX + "openOutputCount";
@@ -76,18 +88,27 @@ public class pcfQueue extends MQBase {
 	protected static final String lookupdeQueued = MQPREFIX + "deQueued";
 	protected static final String lookupenQueued = MQPREFIX + "enQueued";
 	protected static final String lookupQueueProcesses = MQPREFIX + "queueProcesses";
+	protected static final String lookupMaxPutPMsgSize = MQPREFIX + "queueMaxPutPerMsgSize";
+	protected static final String lookupMaxGetPMsgSize = MQPREFIX + "queueMaxGetPerMsgSize";
+//	protected static final String lookupMaxPutNMsgSize = MQPREFIX + "queueMaxPutNonPMsgSize";
+//	protected static final String lookupMaxGetNMsgSize = MQPREFIX + "queueMaxGetNonPMsgSize";
+
+	//protected static final String lookupPutCount = MQPREFIX + "putCount";
+	//protected static final String lookupPut1Count = MQPREFIX + "put1Count";
+	//protected static final String lookupPutBytes = MQPREFIX + "putBytes";
+
 	
-	protected static final String lookupPutCount = MQPREFIX + "putCount";
-	protected static final String lookupPut1Count = MQPREFIX + "put1Count";
-	protected static final String lookupPutBytes = MQPREFIX + "putBytes";
-
     private PCFMessageAgent messageAgent;
-
 	public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
-    
     }
+	
+	private MQMetricsQueueManager conn;
+	public void setQueueManager(MQMetricsQueueManager conn) {
+		this.conn = conn;
+		
+	}
 	
     /*
      * When the class is fully created ...
@@ -117,9 +138,9 @@ public class pcfQueue extends MQBase {
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
-		this.clearMetrics++;
-		if (this.clearMetrics % CONST_CLEARMETRICS == 0) {
-			this.clearMetrics = 0;
+		setCounter();
+		if (getCounter() % getClearMetrics() == 0) {
+			setCounter(0);
 			if (getDebugLevel() == LEVEL.DEBUG 
 					|| getDebugLevel() == LEVEL.TRACE) {
 				log.trace("Clearing queue metrics");
@@ -436,9 +457,116 @@ public class pcfQueue extends MQBase {
 						} else {
 							enQue.set(envalue);
 						}
-
 					}
+					
+					/*
+					 *  Max message queue size
+					 */
+					
+					if (qType == MQConstants.MQQT_LOCAL) {
+				
+						List<AccountingEntity> pcfAccts = this.conn.readAccountData(queueName);
 
+						/*
+						 * Max PUT message size
+						 */
+						int[] maxValues = findMaxValues(pcfAccts, queueName, 
+								MQConstants.MQIAMO_PUT_MAX_BYTES, 
+								MQConstants.MQPER_PERSISTENT);						
+						int maxMsgSize = maxValues[MQConstants.MQPER_PERSISTENT];
+						if (maxMsgSize > 0) {
+							AtomicInteger maxLen = msgMaxPutPMsgSizeMap.get(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
+							if (maxLen == null) {
+								msgMaxPutPMsgSizeMap.put(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
+										, meterRegistry.gauge(lookupMaxPutPMsgSize, 
+										Tags.of("queueManagerName", this.queueManager,
+												"queueName", queueName,
+												"queueType", queueType,
+												"usage",queueUsage,
+												"cluster",queueCluster,
+												"persistence","true"
+												),
+										new AtomicInteger(maxMsgSize))
+										);
+							} else {
+								maxLen.set(maxMsgSize);
+							}
+						}
+						
+						maxValues = findMaxValues(pcfAccts, queueName, 
+								MQConstants.MQIAMO_PUT_MAX_BYTES, 
+								MQConstants.MQPER_NOT_PERSISTENT);						
+						maxMsgSize = maxValues[MQConstants.MQPER_NOT_PERSISTENT];
+						if (maxMsgSize > 0) {
+							AtomicInteger maxLen = msgMaxPutPMsgSizeMap.get(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
+							if (maxLen == null) {
+								msgMaxPutPMsgSizeMap.put(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
+												, meterRegistry.gauge(lookupMaxPutPMsgSize, 
+										Tags.of("queueManagerName", this.queueManager,
+												"queueName", queueName,
+												"queueType", queueType,
+												"usage",queueUsage,
+												"cluster",queueCluster,
+												"persistence","false"
+												),
+										new AtomicInteger(maxMsgSize))
+										);
+							} else {
+								maxLen.set(maxMsgSize);
+							}
+						}
+						
+						/*
+						 * Max PUT message size
+						 */
+						maxValues = findMaxValues(pcfAccts, queueName, 
+								MQConstants.MQIAMO_GET_MAX_BYTES,
+								MQConstants.MQPER_PERSISTENT);						
+						maxMsgSize = maxValues[MQConstants.MQPER_PERSISTENT];
+						if (maxMsgSize > 0) {
+							AtomicInteger maxLen = msgMaxGetPMsgSizeMap.get(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
+							if (maxLen == null) {
+								msgMaxGetPMsgSizeMap.put(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
+											, meterRegistry.gauge(lookupMaxGetPMsgSize, 
+										Tags.of("queueManagerName", this.queueManager,
+												"queueName", queueName,
+												"queueType", queueType,
+												"usage",queueUsage,
+												"cluster",queueCluster,
+												"persistence","true"
+												),
+										new AtomicInteger(maxMsgSize))
+										);
+							} else {
+								maxLen.set(maxMsgSize);
+							}
+						}
+						
+						maxValues = findMaxValues(pcfAccts, queueName, 
+								MQConstants.MQIAMO_GET_MAX_BYTES, 
+								MQConstants.MQPER_NOT_PERSISTENT);						
+						maxMsgSize = maxValues[MQConstants.MQPER_NOT_PERSISTENT];
+						if (maxMsgSize > 0) {
+							AtomicInteger maxLen = msgMaxGetPMsgSizeMap.get(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
+							if (maxLen == null) {
+								msgMaxGetPMsgSizeMap.put(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
+											, meterRegistry.gauge(lookupMaxGetPMsgSize, 
+										Tags.of("queueManagerName", this.queueManager,
+												"queueName", queueName,
+												"queueType", queueType,
+												"usage",queueUsage,
+												"cluster",queueCluster,
+												"persistence","false"
+												),
+										new AtomicInteger(maxMsgSize))
+										);
+							} else {
+								maxLen.set(maxMsgSize);
+							}
+						}
+						
+						
+					}					
 				}
 				
 			} catch (Exception e) {
@@ -450,6 +578,34 @@ public class pcfQueue extends MQBase {
 		}
 	}
 
+	/*
+	 * Find the MAX value
+	 */
+	private int[] findMaxValues(List<AccountingEntity> pcfAccts, String queueName, int param, int pers) {
+		
+		int[] max = {0,0};
+		for (AccountingEntity act: pcfAccts) {
+			if (act.getType() == param) {
+				if (act.getQueueName().equals(queueName)) {
+					int[] v = act.getValues();
+					if (pers == MQConstants.MQPER_NOT_PERSISTENT) {
+						if (v[MQConstants.MQPER_NOT_PERSISTENT] > max[MQConstants.MQPER_NOT_PERSISTENT]) {
+							max = v;
+						}
+					}
+					if (pers == MQConstants.MQPER_PERSISTENT) {
+						if (v[MQConstants.MQPER_PERSISTENT] > max[MQConstants.MQPER_PERSISTENT]) {
+							max = v;
+						}
+					}
+					
+				}
+			}
+			
+		}
+		
+		return max;
+	}
 	/*
 	 * Get the handles from each queue
 	 */
@@ -588,7 +744,10 @@ public class pcfQueue extends MQBase {
 		deleteMetricEntry(lookupdeQueued);
 		deleteMetricEntry(lookupenQueued);
 		deleteMetricEntry(lookupQueueProcesses);
-		
+		deleteMetricEntry(lookupMaxPutPMsgSize);
+//		deleteMetricEntry(lookupMaxPutNMsgSize);
+		deleteMetricEntry(lookupMaxGetPMsgSize);
+//		deleteMetricEntry(lookupMaxGetNMsgSize);
 		
 	    this.queueMap.clear();
 	    this.openInMap.clear();
@@ -600,8 +759,12 @@ public class pcfQueue extends MQBase {
 	    this.deQueMap.clear();
 	    this.enQueMap.clear();
 	    this.procMap.clear();
-		
+	    this.msgMaxPutPMsgSizeMap.clear();
+	    this.msgMaxGetPMsgSizeMap.clear();
+//	    this.msgMaxPutNMsgSizeMap.clear();
+//	    this.msgMaxGetNMsgSizeMap.clear();
 		
 	}
+	
 	
 }

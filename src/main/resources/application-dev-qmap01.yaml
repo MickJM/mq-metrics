@@ -23,6 +23,8 @@ ibm:
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
+    pcf:
+      values: MQIAMO_PUT_MAX_BYTES, MQIAMO_GET_MAX_BYTES
     json:
       sort: true
       order: ascending

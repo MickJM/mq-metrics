@@ -1,11 +1,22 @@
 package maersk.com.mq.metrics.mqmetrics;
 
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.annotation.PostConstruct;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,13 +24,24 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import com.ibm.mq.MQException;
+import com.ibm.mq.MQGetMessageOptions;
+import com.ibm.mq.MQMessage;
+import com.ibm.mq.MQQueue;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.pcf.MQCFGR;
+import com.ibm.mq.headers.pcf.MQCFH;
+import com.ibm.mq.headers.pcf.MQCFIL;
+import com.ibm.mq.headers.pcf.MQCFST;
+import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import com.ibm.mq.headers.pcf.PCFParameter;
 
+import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tags;
 //import maersk.com.mq.metrics.mqmetrics.MQBase.MQPCFConstants;
+import maersk.com.mq.metrics.accounting.AccountingEntity;
 
 @Component
 public class MQMetricsQueueManager extends MQBase {
@@ -114,6 +136,11 @@ public class MQMetricsQueueManager extends MQBase {
 		return this.local;
 	}
 	
+	@Value("${ibm.mq.pcf.values:}")
+	private String[] pcfValues;
+	
+	private int[] searchPCF;
+	
     /*
      *  MAP details for the metrics
      */
@@ -140,10 +167,14 @@ public class MQMetricsQueueManager extends MQBase {
     private MQQueueManager queManager = null;
     private PCFMessageAgent messageAgent = null;
     
+    private MQQueue queue = null;
+    private MQGetMessageOptions gmo = null;
+    
     /*
      * Constructor
      */
 	public MQMetricsQueueManager() {
+		log.info("MQMeticQueueManager ...");
 	}
 	
 	/*
@@ -151,6 +182,15 @@ public class MQMetricsQueueManager extends MQBase {
 	 */
 	public MQQueueManager createQueueManager() throws MQException, MQDataException {
 
+		this.searchPCF = new int[this.pcfValues.length];		
+		int array = 0;
+		for (String w: this.pcfValues) {
+			final int x = MQConstants.getIntValue(w);
+			this.searchPCF[array] = x;
+			array++;		
+		}
+		Arrays.sort(this.searchPCF);		
+		
 		Hashtable<String, Comparable> env = null;
 		
 		if (!isRunningLocal()) { 
@@ -260,10 +300,12 @@ public class MQMetricsQueueManager extends MQBase {
 			qmgr = new MQQueueManager(this.queueManager, env);
 		}
 		log.info("Connection to queue manager established ");
-			
+		
+		this.queManager = qmgr;
+		
 		return qmgr;
 	}
-
+	
 	/*
 	 * Establish a PCF agent
 	 */	
@@ -356,6 +398,202 @@ public class MQMetricsQueueManager extends MQBase {
 		}
 	}
 
+	/*
+	 * Look for the account information for MAX message size on a queue ...
+	 * This is complex ...
+	 * 
+	 * Open the 'SYSTEM.ADMIN.ACCOUNTING.QUEUE'
+	 *    if 'browse', set to browse mode, if 'read' set to read messages
+	 *    For each messages on the queue;
+	 *        Read the message of the queue (PCF format)
+	 *        Loop through each PCF parameter on the message
+	 *            Found a PCF Group record (MQCFT_GROUP)
+	 *                Loop through each PCF parameter within the group
+	 *                    When parameter is MQCA_Q_NAME
+	 *                        if SYSTEM or AMQ; break
+	 *                    When parameter is MQCA_Q_NAME
+	 *                        save the queue name
+	 *                    When parameter is MQIAMO_PUT_MAX_BYTES
+	 *                        save the values
+	 *                        break
+	 *                :
+	 *            :
+	 *        :
+	 *        
+	 */
+	public List<AccountingEntity> readAccountData(String queueName) throws MQDataException, IOException {
+		
+		// https://github.com/icpchave/MQToolsBox/blob/master/src/cl/continuum/mq/pfc/samples/ReadPCFMessages.java
+		log.info("Looking for queue = " + queueName);
+		
+		if (getDebugLevel() == LEVEL.TRACE) {
+			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+			Date date = new Date();
+			log.info("Start accounting processing : " + dateFormat.format(date));
+		}
+		final List<AccountingEntity> stats = new ArrayList<AccountingEntity>();
+		stats.clear();
+		
+		try {
+			if (this.queue == null) {
+				this.queue = this.queManager.accessQueue("SYSTEM.ADMIN.ACCOUNTING.QUEUE", 
+						MQConstants.MQOO_INPUT_AS_Q_DEF |
+						MQConstants.MQOO_BROWSE | 
+						MQConstants.MQOO_FAIL_IF_QUIESCING);
+				this.gmo = new MQGetMessageOptions();
+
+			}
+			
+			this.gmo.options = MQConstants.MQGMO_BROWSE_FIRST | 
+					MQConstants.MQGMO_NO_WAIT | 
+					MQConstants.MQGMO_CONVERT;
+			this.gmo.matchOptions = MQConstants.MQMO_MATCH_MSG_ID  | MQConstants.MQMO_MATCH_CORREL_ID;
+							
+			String pcfQueueName = "";
+			int[] pcfArrayValue = {0};
+			int pcfType = 0;
+			
+			MQMessage message = new MQMessage ();
+
+			while (true) {
+			
+				message.messageId = MQConstants.MQMI_NONE;
+				message.correlationId = MQConstants.MQMI_NONE;
+				this.queue.get (message, this.gmo);
+			
+				PCFMessage pcf = new PCFMessage (message);
+				Enumeration<PCFParameter> parms = pcf.getParameters();
+				boolean foundPCFEntry = false;
+				
+				msgPCFRecords: while (parms.hasMoreElements()) {
+					PCFParameter pcfParams = parms.nextElement();
+					
+					switch (pcfParams.getParameter()) {
+
+						default:
+							switch (pcfParams.getType()) {
+								case(MQConstants.MQCFT_GROUP):
+									MQCFGR grp = (MQCFGR)pcfParams; // PCF Group record
+									Enumeration<PCFParameter> gparms = grp.getParameters();
+									
+									grpRecords: while (gparms.hasMoreElements()) {
+										PCFParameter grpPCFParams = gparms.nextElement();
+										
+										switch (grpPCFParams.getParameter()) {
+											case (MQConstants.MQCA_Q_NAME):
+												pcfQueueName = grpPCFParams.getStringValue().trim();
+										        if ((pcfQueueName.startsWith("SYSTEM")) 
+										        		|| (pcfQueueName.startsWith("AMQ"))) {
+										        	break grpRecords; // get next PCF record
+										        }
+												if (!pcfQueueName.equals(queueName)) {
+													pcfQueueName = "";
+													break grpRecords; // get next PCF record
+												}
+												break; // get next group record
+
+											case (MQConstants.MQIAMO_PUT_MAX_BYTES):
+												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_PUT_MAX_BYTES) >= 0) {
+
+													MQCFIL max = (MQCFIL) grpPCFParams;
+													pcfArrayValue = max.getValues();
+													if (pcfQueueName != "") {
+														pcfType = MQConstants.MQIAMO_PUT_MAX_BYTES;
+														
+														AccountingEntity ae = new AccountingEntity();
+														ae.setType(pcfType);
+														ae.setQueueName(queueName);
+														ae.setValues(pcfArrayValue);
+														if (pcfArrayValue[0] > 0) {
+															stats.add(ae);
+															log.info("PUT MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
+
+														}
+														
+													//	foundPCFEntry = true;
+													}
+													//break msgPCFRecords;
+												}
+											
+												break;
+
+											case (MQConstants.MQIAMO_GET_MAX_BYTES):
+												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_GET_MAX_BYTES) >= 0) {
+													
+													MQCFIL max = (MQCFIL) grpPCFParams;
+													pcfArrayValue = max.getValues();
+													if (pcfQueueName != "") {
+														pcfType = MQConstants.MQIAMO_GET_MAX_BYTES;
+
+														AccountingEntity ae = new AccountingEntity();
+														ae.setType(pcfType);
+														ae.setQueueName(queueName);
+														ae.setValues(pcfArrayValue);
+														if (pcfArrayValue[0] > 0) {
+															stats.add(ae);
+															log.info("GET MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
+						
+														}
+										
+												//		foundPCFEntry = true;
+													}
+													break msgPCFRecords;
+												}
+											
+												break;
+												
+											default:
+												break;
+										} // end of switch
+									} // end of loop 'a'
+									
+							        break;
+							}
+						//	log.info("Type: " + p.getType());
+							break;
+					}
+				} // end of inner loop		        
+		        
+				this.gmo.options = MQConstants.MQGMO_BROWSE_NEXT | 
+						MQConstants.MQGMO_NO_WAIT | 
+						MQConstants.MQGMO_CONVERT;
+				
+				/*
+				if (foundPCFEntry) {
+					AccountingEntity ae = new AccountingEntity();
+					ae.setType(pcfType);
+					ae.setQueueName(queueName);
+					ae.setValues(pcfArrayValue);
+					if (pcfArrayValue[0] > 0) {
+						stats.add(ae);
+						if (pcfType == MQConstants.MQIAMO_PUT_MAX_BYTES) {
+							log.info("PUT MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
+						}
+						if (pcfType == MQConstants.MQIAMO_GET_MAX_BYTES) {
+							log.info("GET MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
+						}
+
+					}
+					
+				}
+				*/
+				
+			} // end of loop
+			
+			
+		} catch (MQException e) {
+			// not bothered if we get an error ...
+			
+		} 
+
+		if (getDebugLevel() == LEVEL.TRACE) {
+			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
+			Date date = new Date();
+			log.info("End accounting time   : " + dateFormat.format(date));
+		}
+		
+		return stats;
+	}
 	
 	/*
 	 * Close the connection to the queue manager

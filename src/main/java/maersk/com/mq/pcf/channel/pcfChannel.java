@@ -31,6 +31,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
+import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
@@ -43,11 +44,13 @@ public class pcfChannel extends MQBase {
 	protected static final String lookupMsgRec = MQPREFIX + "messagesReceived";
 	protected static final String lookupBytesRec = MQPREFIX + "bytesReceived";
 	protected static final String lookupBytesSent = MQPREFIX + "bytesSent";
+	protected static final String lookupMaxMsgSize = MQPREFIX + "channelMaxMsgSize";
 	
     private Map<String,AtomicInteger>channelMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicLong>msgRecMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgBytesRecMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgBytesSentMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>msgMaxMsgSizeMap = new HashMap<String,AtomicLong>();
 
 	private String queueManager;
 
@@ -129,15 +132,17 @@ public class pcfChannel extends MQBase {
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
-		this.clearMetrics ++;
-		if (this.clearMetrics % CONST_CLEARMETRICS == 0) {
-			this.clearMetrics = 0;
-			if (getDebugLevel() == LEVEL.TRACE) {
+		setCounter();
+		if (getCounter() % getClearMetrics() == 0) {
+			setCounter(0);
+			if (getDebugLevel() == LEVEL.DEBUG 
+					|| getDebugLevel() == LEVEL.TRACE) {
 				log.debug("Clearing channel metrics");
+
 			}
 			resetMetrics();
 		}
-
+		
 		// Enquire on all channels
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL);
 		pcfRequest.addParameter(MQConstants.MQCACH_CHANNEL_NAME, "*");
@@ -403,8 +408,41 @@ public class pcfChannel extends MQBase {
 									);
 						} else {
 							msgBytesSent.set(bytesSentOverChannels);
-						}
-					}			
+						}					
+					}
+				}				
+				/*
+				 * Max msg size
+				 */
+				try {
+					int maxMsgLen = pcfMsg.getIntParameterValue(MQConstants.MQIACH_MAX_MSG_LENGTH);
+					AtomicLong maxLen = msgMaxMsgSizeMap.get(lookupMaxMsgSize + "_" + channelName);
+					if (maxLen == null) {
+						msgMaxMsgSizeMap.put(lookupMaxMsgSize + "_" + channelName, meterRegistry.gauge(lookupMaxMsgSize, 
+								Tags.of("queueManagerName", this.queueManager,
+										"channelType", channelType,
+										"channelName", channelName,
+										"cluster", channelCluster
+										),
+								new AtomicLong(maxMsgLen))
+								);
+					} else {
+						maxLen.set(maxMsgLen);
+					}
+				} catch (Exception e ) {
+					AtomicLong maxLen = msgMaxMsgSizeMap.get(lookupMaxMsgSize + "_" + channelName);
+					if (maxLen == null) {
+						msgMaxMsgSizeMap.put(lookupMaxMsgSize + "_" + channelName, meterRegistry.gauge(lookupMaxMsgSize, 
+								Tags.of("queueManagerName", this.queueManager,
+										"channelType", channelType,
+										"channelName", channelName,
+										"cluster", channelCluster
+										),
+								new AtomicLong(MQConstants.MQCHS_INACTIVE))
+								);
+					} else {
+						maxLen.set(MQConstants.MQCHS_INACTIVE);
+					}					
 				}
 			}
 			
@@ -545,12 +583,13 @@ public class pcfChannel extends MQBase {
 		deleteMetricEntry(lookupMsgRec);
 		deleteMetricEntry(lookupBytesRec);
 		deleteMetricEntry(lookupBytesSent);
+		deleteMetricEntry(lookupMaxMsgSize);
 		
 	    this.channelMap.clear();
 	    this.msgRecMap.clear();
 	    this.msgBytesRecMap.clear();
 	    this.msgBytesSentMap.clear();
-
+	    this.msgMaxMsgSizeMap.clear();
 		
 	}
 

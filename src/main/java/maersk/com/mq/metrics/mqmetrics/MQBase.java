@@ -44,9 +44,21 @@ public class MQBase implements MQPCFConstants {
 	}
 	
 	@Value("${ibm.mq.clearMetrics:10}")
-	protected int CONST_CLEARMETRICS;
-
+	private int CONST_CLEARMETRICS;
+	public int getClearMetrics() {
+		return this.CONST_CLEARMETRICS;
+	}
+	
 	protected int clearMetrics;
+	public synchronized void setCounter(int v) {
+		this.clearMetrics = v;
+	}
+	public synchronized void setCounter() {
+		this.clearMetrics++;
+	}
+	public synchronized int getCounter() {
+		return this.clearMetrics;
+	}
 
 	
 	/*
