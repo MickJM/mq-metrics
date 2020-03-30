@@ -28,13 +28,13 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Meter.Id;
 
 import maersk.com.mq.json.entities.*;
-import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
+import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
 
 @RestController
 @ComponentScan
 @RequestMapping(value="/json")
-public class JSONController extends MQBase {
+public class JSONController extends MQBaseNotNeeded {
 	//@GetMapping("/json")
 
 	static Logger log = Logger.getLogger(JSONController.class);

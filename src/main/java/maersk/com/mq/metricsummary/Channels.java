@@ -12,9 +12,9 @@ import java.util.List;
 
 public class Channels {
 
-	private String queueManagerName;
-	private String currentDate;
-	private List<Channel>channel;
+	private String queueManagerName;		// Name of the queue manager
+	private String currentDate;				// Date
+	private List<Channel>channel;			// List of channels
 	
 	public String getQueueManagerName() {
 		return queueManagerName;
@@ -34,8 +34,4 @@ public class Channels {
 	public void setChannel(List<Channel> channel) {
 		this.channel = channel;
 	}
-	
-	
-	
-	
 }

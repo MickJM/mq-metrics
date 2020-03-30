@@ -27,7 +27,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import javax.annotation.PostConstruct;
+
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,16 +41,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBase;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
+import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 
 @RestController
 @Component
-public class MQMetricSummary extends MQBase {
+public class MQMetricSummary {
 	
 	private static final int DAY_ONE = 1;
 	
-	protected static final String lookupChlCounts = MQPREFIX + "cummulativeChannelCounts";
+	protected static final String lookupChlCounts = "mq:cummulativeChannelCounts";
 	
 	@Value("${application.save.metrics.filename:nofile.json}")
     private String metricsFileName;
@@ -55,65 +59,19 @@ public class MQMetricSummary extends MQBase {
     private Logger log = Logger.getLogger(this.getClass());
     private Channels channels;
     
-    //Channel maps MetricChannelDetails
     private Map<String,MetricChannelDetails>cummChannelCounts = new HashMap<String, MetricChannelDetails>();
     private Map<String,AtomicLong>loadedCounts = new HashMap<String, AtomicLong>();
-
-    private int timesCalled = 0;
     
-    @RequestMapping(value = "/test", method = RequestMethod.GET,produces="text/plain")
-    //public Iterator<Entry<String, MetricChannelDetails>> HelloWorld() {
-    public List<String> HelloWorld() {
-    	
-   	 	//HashMap<String, Long> res = new HashMap<String, Long>();           
-   	 	List<String> res = new ArrayList();
-   	 	
-		Iterator<Entry<String, MetricChannelDetails>> listChannels = this.cummChannelCounts.entrySet().iterator();
-						
-		// loop through, then put to a file
-		boolean setHeader = true;
-		
-		/*
-		while (listChannels.hasNext()) {
-
-	        Map.Entry pair = (Map.Entry)listChannels.next();
-	        MetricChannelDetails key = (MetricChannelDetails) pair.getValue();
-		//	AtomicLong i = (AtomicLong) pair.getValue();
-
-			String v = Long.toString(key.getCount());
-			//res.put("mq:summary{queueManagerName=" + key.getQueueManagerName() + ",channelName=" + key.getChannelName() + ",} ", key.getCount());
-			String x = "mq:summary{queueManagerName=\"" + key.getQueueManagerName() + "\"}, " + key.getInitialValue();
-			res.add(x);
-		}
-		*/
-		
-		
-   	 	
-    	String qmName = this.channels.getQueueManagerName();
-		String date = this.channels.getCurrentDate();
-		
-		for (Channel c : this.channels.getChannel()) {
-			String channelName = c.getName();
-			String channelType = c.getChannelType();
-			String clusterName = c.getClusterName();
-			long lastMonth = c.getLastmonth();
-			long thisMonth = c.getThismonth();
-			String v = Long.toString(thisMonth);
-			res.add("mq:summary{queueManagerName=" + qmName + ",channelName=" + channelName + ",} 0");
-			
-		}
-    	
-		
-      //   res.put("data", "hello world");
-      //   res.put("errorCode", "0");
-         return res;
-         //return listChannels;
-    }
+    @Autowired
+    private MQMonitorBase base;
     
 	public MQMetricSummary() {
-		if (getDebugLevel() == LEVEL.TRACE) { log.info("Invoking MQMetricSummary"); }
 	}
 
+	@PostConstruct
+	private void init() {
+		if (base.getDebugLevel() == base.TRACE) { log.info("Invoking MQMetricSummary"); }		
+	}
 	/*
 	 * Load any metrics from the saved file 
 	 */
@@ -139,7 +97,7 @@ public class MQMetricSummary extends MQBase {
 	 */
 	private void LoadMetricsFromFile() throws IOException {
 
-		if (getDebugLevel() == LEVEL.TRACE) { log.trace("Loading monthly metrics from file ... : " + this.metricsFileName); }
+		if (base.getDebugLevel() == base.TRACE) { log.trace("Loading monthly metrics from file ... : " + this.metricsFileName); }
 		log.info("file: " + Paths.get(this.metricsFileName));
 		
 		Path pathToFile = Paths.get(this.metricsFileName);
@@ -222,29 +180,6 @@ public class MQMetricSummary extends MQBase {
 		} else {
 			val.incCount(count, val.getInitialValue());
 		}
-
-		/*
-		cummChannelCounts.put(mcd.toString(), 
-				meterRegistry.gauge(lookupChlCounts, 
-						Tags.of("queueManagerName", qm,
-								"channelType", channelType,
-								"channelName", channelName,
-								"cluster", clusterName)
-						,new AtomicLong(count)));
-	} else {
-		val.set(count);
-	}
-		
-		
-		
-		meterRegistry.gauge(lookupChlCounts, 
-				Tags.of("queueManagerName", qm,
-						"channelType", channelType,
-						"channelName", channelName,
-						"cluster", clusterName)
-				,count);
-
-		*/
 		
 	}
 
@@ -267,7 +202,7 @@ public class MQMetricSummary extends MQBase {
 		 *  Should we roll over 'this month' to 'last month' ?
 		 */
 		cal.setTime(today);
-		if (getDebugLevel() == LEVEL.TRACE) { 
+		if (base.getDebugLevel() == base.TRACE) { 
 			log.trace("Today day of week: " + cal.get(Calendar.DAY_OF_MONTH));
 			log.trace(" File day of week: " + met.get(Calendar.DAY_OF_MONTH)); 
 		}
@@ -302,36 +237,21 @@ public class MQMetricSummary extends MQBase {
 	}
 	
 		
-	public void resetMetric() {
-		deleteMetricEntry(lookupChlCounts);
-
-	}
 
 	/*
 	 * Save the metrics to a file 
 	 */
 	public void SaveMetrics() {
 		
-		if (getDebugLevel() == LEVEL.TRACE) { log.info("Saving metric summary to disk ..."); }
+		if (base.getDebugLevel() == base.TRACE) { log.info("Saving metric summary to disk ..."); }
 		
 		String fileName = this.metricsFileName;
 		Path path = Paths.get(fileName);
 		
 		Channels channels = new Channels();
-		List<Channel> channelList = new ArrayList<Channel>();
-		
-		//MetricChannelDetails
-		//Iterator<Entry<MetricChannelDetails, AtomicLong>> listChannels = this.cummChannelCounts.entrySet().iterator();
+		List<Channel> channelList = new ArrayList<Channel>();		
 		Iterator<Entry<String, MetricChannelDetails>> listChannels = this.cummChannelCounts.entrySet().iterator();
 		
-		// Get the first entry, so we get the queue manager name
-		////Map.Entry first = (Map.Entry)listChannels.next();
-        //MetricChannelDetails firstkey = (MetricChannelDetails) first.getKey();
-		////MetricChannelDetails firstkey = (MetricChannelDetails) first.getValue();
-		
-		////channels.setQueueManagerName(firstkey.getQueueManagerName());
-		////channels.setCurrentDate(new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS").format(new Date()));
-				
 		// loop through, then put to a file
 		boolean setHeader = true;
 		
@@ -339,8 +259,6 @@ public class MQMetricSummary extends MQBase {
 
 	        Map.Entry pair = (Map.Entry)listChannels.next();
 	        MetricChannelDetails key = (MetricChannelDetails) pair.getValue();
-		//	AtomicLong i = (AtomicLong) pair.getValue();
-
 			if (setHeader) {
 				channels.setQueueManagerName(key.getQueueManagerName());
 				channels.setCurrentDate(new SimpleDateFormat("yyyy.MM.dd HH:mm:ss.SSS").format(new Date()));
@@ -356,22 +274,25 @@ public class MQMetricSummary extends MQBase {
 			//channel.setThismonth(i.get());
 			channelList.add(channel);	        
 			
-		}
-		
+		}		
 		channels.setChannel(channelList);
 			
 		try {
 			
-			if (getDebugLevel() == LEVEL.TRACE) { log.trace("Creating JSON file :" + fileName ); }
+			if (base.getDebugLevel() == base.TRACE) { log.trace("Creating JSON file :" + fileName ); }
 			ObjectMapper objectMapper = new ObjectMapper();
 			objectMapper.writeValue(new File(fileName),channels);
 			
 		} catch (IOException e) {
 			log.error("Error creating new JSON file ... : " + e.getMessage());
-		}
-	
-		
+		}		
 	}
+	
+	public void resetMetric() {
+		base.deleteMetricEntry(lookupChlCounts);
+
+	}
+
 	
 }
 

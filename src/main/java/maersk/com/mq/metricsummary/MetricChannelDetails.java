@@ -1,20 +1,17 @@
 package maersk.com.mq.metricsummary;
 
 /*
- * Copyright 2019
- * Mick Moriarty - Maersk
- *
  * Metric Channel details
  * 
  */
 
 public class MetricChannelDetails {
 
-	private String ChannelName;
-	private String QueueManagerName;
-	private String ChannelType;
-	private String ClusterName;
-	private long InitialValue;
+	private String ChannelName;			// Queue manager channel name
+	private String QueueManagerName;	// Queue manager name
+	private String ChannelType;			// Channel type
+	private String ClusterName;			// Name of the cluster
+	private long InitialValue;		
 	private long Count;
 	
 	public String getChannelName() {

@@ -10,5 +10,14 @@ public interface MQPCFConstants {
 		public int MODE_LOCAL = 0;
 		public int MODE_CLIENT = 1;
 		public int EXIT_ERROR = 1;
+		
+		public int NONE = 0;
+		public int INFO = 1;
+		public int DEBUG = 2;
+		public int WARN = 4;
+		public int ERROR = 8;
+		public int TRACE = 16;
+
+		public String MQPREFIX = "mq:";
 	
 }

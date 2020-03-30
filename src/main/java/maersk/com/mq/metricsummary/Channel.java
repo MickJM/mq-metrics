@@ -8,8 +8,6 @@ package maersk.com.mq.metricsummary;
  * 
  */
 
-import java.util.concurrent.atomic.AtomicLong;
-
 public class Channel {
 
 	private String name;
@@ -50,8 +48,4 @@ public class Channel {
 	public void setThismonth(long i) {
 		this.thismonth = i;
 	}
-	
-	
-	
-	
 }

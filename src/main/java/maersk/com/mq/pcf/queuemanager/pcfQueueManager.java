@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -27,13 +28,14 @@ import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBase;
+import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
+import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @Component
-public class pcfQueueManager extends MQBase {
+public class pcfQueueManager {
 
-    private Logger log = Logger.getLogger(this.getClass());
+	private Logger log = Logger.getLogger(this.getClass());
 
 	private String queueManager;
 
@@ -42,10 +44,13 @@ public class pcfQueueManager extends MQBase {
 
     private PCFMessageAgent messageAgent = null;
 
-	protected static final String cmdLookupStatus = MQPREFIX + "commandServerStatus";
-	protected static final String lookupStatus = MQPREFIX + "queueManagerStatus";
-	protected static final String lookupReset = MQPREFIX + "resetIterations";
-	protected static final String lookupMultiInstance = MQPREFIX + "multiInstance";
+    @Autowired
+    private MQMonitorBase base;
+    
+	protected static final String cmdLookupStatus = "mq:commandServerStatus";
+	protected static final String lookupStatus = "mq:queueManagerStatus";
+	protected static final String lookupReset = "mq:resetIterations";
+	protected static final String lookupMultiInstance = "mq:multiInstance";
 	
     private Map<String,AtomicInteger>qmMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>cmdMap = new HashMap<String,AtomicInteger>();
@@ -72,6 +77,7 @@ public class pcfQueueManager extends MQBase {
 
 	// Constructor
     public pcfQueueManager() {
+    	log.info("Queue Manager ...");
     }
 
     /*
@@ -89,7 +95,7 @@ public class pcfQueueManager extends MQBase {
 
 		AtomicInteger value = iterMap.get(lookupReset + "_" + queueMan);
 		if (value == null) {
-			iterMap.put(lookupReset + "_" + this.queueManager, meterRegistry.gauge(lookupReset, 
+			iterMap.put(lookupReset + "_" + this.queueManager, base.meterRegistry.gauge(lookupReset, 
 					Tags.of("queueManagerName", queueMan),
 					new AtomicInteger(this.resetIterations))
 					);
@@ -103,7 +109,7 @@ public class pcfQueueManager extends MQBase {
 	 */
 	public void checkQueueManagerCluster() {
 
-		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: checkQueueManagerCluster"); }
+		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.trace("pcfQueueManager: checkQueueManagerCluster"); }
 
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
         
@@ -121,7 +127,7 @@ public class pcfQueueManager extends MQBase {
 	        setQueueManagerClusterName(clusterNames.trim());
 
         } catch (Exception e) {
-    		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: Exception, queue manager doesn't belong to a cluster"); }
+    		if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfQueueManager: Exception, queue manager doesn't belong to a cluster"); }
         }	
 	}
 	
@@ -158,11 +164,11 @@ public class pcfQueueManager extends MQBase {
 		/*
 		 *  queue manager status
 		 */
-		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: queue manager status"); }
+		if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfQueueManager: queue manager status"); }
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
 		AtomicInteger qmStat = qmMap.get(lookupStatus + "_" + this.queueManager);
 		if (qmStat == null) {
-			qmMap.put(lookupStatus + "_" + this.queueManager, meterRegistry.gauge(lookupStatus, 
+			qmMap.put(lookupStatus + "_" + this.queueManager, base.meterRegistry.gauge(lookupStatus, 
 					Tags.of("queueManagerName", this.queueManager,
 							"cluster",getQueueManagerClusterName()),
 					new AtomicInteger(qmStatus))
@@ -174,11 +180,11 @@ public class pcfQueueManager extends MQBase {
 		/*
 		 *  command server status
 		 */
-		if (getDebugLevel() == LEVEL.TRACE) { log.trace("pcfQueueManager: command server status"); }
+		if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfQueueManager: command server status"); }
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		AtomicInteger value = cmdMap.get(cmdLookupStatus + "_" + this.queueManager);
 		if (value == null) {
-			cmdMap.put(cmdLookupStatus + "_" + this.queueManager, meterRegistry.gauge(cmdLookupStatus, 
+			cmdMap.put(cmdLookupStatus + "_" + this.queueManager, base.meterRegistry.gauge(cmdLookupStatus, 
 					Tags.of("queueManagerName", this.queueManager),
 					new AtomicInteger(cmdStatus))
 					);
@@ -217,7 +223,7 @@ public class pcfQueueManager extends MQBase {
 		} 
 		AtomicInteger value = qmMap.get(lookupStatus + "_" + this.queueManager);
 		if (value == null) {
-			qmMap.put(lookupStatus + "_" + qm, meterRegistry.gauge(lookupStatus, 
+			qmMap.put(lookupStatus + "_" + qm, base.meterRegistry.gauge(lookupStatus, 
 					Tags.of("queueManagerName", qm,
 							"cluster",getQueueManagerClusterName()),
 					new AtomicInteger(val))
@@ -235,7 +241,7 @@ public class pcfQueueManager extends MQBase {
 		}
 		AtomicInteger multiVal = multiMap.get(lookupMultiInstance + "_" + qm);
 		if (multiVal == null) {
-			multiMap.put(lookupMultiInstance + "_" + qm, meterRegistry.gauge(lookupMultiInstance, 
+			multiMap.put(lookupMultiInstance + "_" + qm, base.meterRegistry.gauge(lookupMultiInstance, 
 					Tags.of("queueManagerName", qm),
 					new AtomicInteger(val))
 					);
@@ -244,15 +250,24 @@ public class pcfQueueManager extends MQBase {
 		}
 		
 	}
-	
+
+	/*
+	 * Reset metrics
+	 */
+	public void resetMetrics() {
+		if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfQueueManager: resetting metrics"); }
+		deleteMetrics();
+		
+	}
+
 	/*
 	 * Remove the metric
 	 */	
-	private void resetMetric() {
-		deleteMetricEntry(lookupReset);
-		deleteMetricEntry(lookupStatus);
-		deleteMetricEntry(cmdLookupStatus);
-		deleteMetricEntry(lookupMultiInstance);
+	private void deleteMetrics() {
+		base.deleteMetricEntry(lookupReset);
+		base.deleteMetricEntry(lookupStatus);
+		base.deleteMetricEntry(cmdLookupStatus);
+		base.deleteMetricEntry(lookupMultiInstance);
 		
 	}
 

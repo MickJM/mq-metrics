@@ -1,6 +1,6 @@
 application:
   debug: false
-  debugLevel: DEBUG
+  debugLevel: INFO
   save:
     metrics:
      required: false
@@ -24,7 +24,8 @@ ibm:
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
     pcf:
-      values: MQIAMO_PUT_MAX_BYTES, MQIAMO_GET_MAX_BYTES
+      parameters: MQIAMO_PUT_MAX_BYTES, MQIAMO_GET_MAX_BYTES, MQIAMO_PUTS, MQIAMO_GETS
+      browse: false
     json:
       sort: true
       order: ascending
