@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.annotation.PostConstruct;
+
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +31,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
+import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
@@ -46,6 +49,9 @@ public class pcfQueueManager {
 
     @Autowired
     private MQMonitorBase base;
+    
+    @Autowired
+    private MQMetricsQueueManager metqm;
     
 	protected static final String cmdLookupStatus = "mq:commandServerStatus";
 	protected static final String lookupStatus = "mq:queueManagerStatus";
@@ -75,11 +81,24 @@ public class pcfQueueManager {
 		this.queueMonitoringFromQmgr = value;
 	}
 
+	private boolean qAcct;
+	public void setQAcct(boolean v) {
+		this.qAcct = v;
+	}
+	public boolean getQAcct() {
+		return qAcct;
+	}
+	
 	// Constructor
     public pcfQueueManager() {
-    	log.info("Queue Manager ...");
     }
 
+    @PostConstruct
+    public void init() {
+    	log.info("Queue Manager ...");
+    	setQAcct(true);
+    }
+    
     /*
      * Set the message agant object and the queue manager name
      */
@@ -152,7 +171,17 @@ public class pcfQueueManager {
 		 */
 		int queueMon = response.getIntParameterValue(MQConstants.MQIA_MONITORING_Q);
 		setQueueMonitoringFromQmgr(queueMon);
-	
+
+		/*
+		 *  Save the queue accounting
+		 */
+		int qAcct = response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q);
+		metqm.setAccounting(qAcct);
+
+		if (getQAcct()) {
+			log.info("Queue manager accounting is : " + metqm.getAccounting());
+			setQAcct(false);
+		}
 		/*
 		 *  Send a queue manager status request
 		 */

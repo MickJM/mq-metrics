@@ -321,7 +321,7 @@ public class MQConnection {
 	/*
 	 * Get metrics
 	 */
-	private void getMetrics() throws PCFException, MQException, 
+	public void getMetrics() throws PCFException, MQException, 
 			IOException, MQDataException, ParseException {
 		
 		checkQueueManagerCluster();

@@ -18,6 +18,4 @@ public interface MQPCFConstants {
 		public int ERROR = 8;
 		public int TRACE = 16;
 
-		public String MQPREFIX = "mq:";
-	
 }

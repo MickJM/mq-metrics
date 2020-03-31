@@ -75,10 +75,9 @@ public class pcfQueue {
     private Map<String,AtomicInteger>deQueMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>enQueMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>procMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>msgMaxPutPMsgSizeMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>msgMaxGetPMsgSizeMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>msgMaxPutMsgSizeMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicInteger>msgMaxGetMsgSizeMap = new HashMap<String,AtomicInteger>();
     
-    private Map<String,AtomicLong>msgPutPMsgCountMapC = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgPutPMsgCountMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgGetPMsgCountMap = new HashMap<String,AtomicLong>();
     
@@ -95,8 +94,8 @@ public class pcfQueue {
 	protected static final String lookupdeQueued = "mq:deQueued";
 	protected static final String lookupenQueued = "mq:enQueued";
 	protected static final String lookupQueueProcesses = "mq:queueProcesses";
-	protected static final String lookupMaxPutPMsgSize = "mq:queueMaxPutPerMsgSize";
-	protected static final String lookupMaxGetPMsgSize = "mq:queueMaxGetPerMsgSize";
+	protected static final String lookupMaxPutMsgSize = "mq:queueMaxPutMsgSize";
+	protected static final String lookupMaxGetMsgSize = "mq:queueMaxGetMsgSize";
 	
 	protected static final String lookupPutMsgCount = "mq:queuePutMsgCount";
 	protected static final String lookupGetMsgCount = "mq:queueGetMsgCOunt";
@@ -482,11 +481,18 @@ public class pcfQueue {
 					 *  For queues, get the MAX GET/PUT stats for PERSISTENT and NON_PERSISTENT messages
 					 */
 					if (qType == MQConstants.MQQT_LOCAL) {
-				
-						List<AccountingEntity> pcfAccts = this.conn.readAccountData(queueName);
+
+						int acctQ = pcfMsg.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q);
 						
 						/*
-						 * Max PUT PERSISTENT message size
+						 * If set to MQMON_Q_QMGR or MQMON_ON, then continue
+						 */
+						List<AccountingEntity> pcfAccts = this.conn.readAccountData(queueName, acctQ);
+						if (pcfAccts.isEmpty()) {
+							continue;
+						}
+						/*
+						 * PUT PERSISTENT messages
 						 */
 						int[] putValues =  sumPutsAndGets(pcfAccts, queueName, MQConstants.MQIAMO_PUTS);						
 						int putMsgs = putValues[MQConstants.MQPER_PERSISTENT];
@@ -511,7 +517,7 @@ public class pcfQueue {
 						}
 						
 						/*
-						 * Max PUT PERSISTENT message size
+						 * PUT NOT PERSISTENT messages
 						 */
 						putMsgs = putValues[MQConstants.MQPER_NOT_PERSISTENT];
 						if (putMsgs > 0) {
@@ -536,7 +542,7 @@ public class pcfQueue {
 
 						
 						/*
-						 * Max GET PERSISTENT message size
+						 * GET PERSISTENT messages
 						 */
 						int[] getValues =  sumPutsAndGets(pcfAccts, queueName, MQConstants.MQIAMO_GETS);						
 						int getMsgs = putValues[MQConstants.MQPER_PERSISTENT];
@@ -561,7 +567,7 @@ public class pcfQueue {
 						}
 
 						/*
-						 * Max GET PERSISTENT message size
+						 * GET NOT PERSISTENT messages
 						 */
 						getMsgs = getValues[MQConstants.MQPER_NOT_PERSISTENT];
 						if (getMsgs > 0) {
@@ -585,17 +591,17 @@ public class pcfQueue {
 						}
 						
 						/*
-						 * PUT PERSISTENT message size
+						 * PUT PERSISTENT message size mozz
 						 */
 						int[] maxValues = findMaxValues(pcfAccts, queueName, 
-								MQConstants.MQIAMO_PUTS, 
+								MQConstants.MQIAMO_PUT_MAX_BYTES, 
 								MQConstants.MQPER_PERSISTENT);						
 						int maxMsgSize = maxValues[MQConstants.MQPER_PERSISTENT];
 						if (maxMsgSize > 0) {
-							AtomicInteger maxLen = msgMaxPutPMsgSizeMap.get(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
+							AtomicInteger maxLen = msgMaxPutMsgSizeMap.get(lookupMaxPutMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
 							if (maxLen == null) {
-								msgMaxPutPMsgSizeMap.put(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
-										, base.meterRegistry.gauge(lookupMaxPutPMsgSize, 
+								msgMaxPutMsgSizeMap.put(lookupMaxPutMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
+										, base.meterRegistry.gauge(lookupMaxPutMsgSize, 
 										Tags.of("queueManagerName", this.queueManager,
 												"queueName", queueName,
 												"queueType", queueType,
@@ -618,10 +624,10 @@ public class pcfQueue {
 								MQConstants.MQPER_NOT_PERSISTENT);						
 						maxMsgSize = maxValues[MQConstants.MQPER_NOT_PERSISTENT];
 						if (maxMsgSize > 0) {
-							AtomicInteger maxLen = msgMaxPutPMsgSizeMap.get(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
+							AtomicInteger maxLen = msgMaxPutMsgSizeMap.get(lookupMaxPutMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
 							if (maxLen == null) {
-								msgMaxPutPMsgSizeMap.put(lookupMaxPutPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
-												, base.meterRegistry.gauge(lookupMaxPutPMsgSize, 
+								msgMaxPutMsgSizeMap.put(lookupMaxPutMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
+												, base.meterRegistry.gauge(lookupMaxPutMsgSize, 
 										Tags.of("queueManagerName", this.queueManager,
 												"queueName", queueName,
 												"queueType", queueType,
@@ -644,10 +650,10 @@ public class pcfQueue {
 								MQConstants.MQPER_PERSISTENT);						
 						maxMsgSize = maxValues[MQConstants.MQPER_PERSISTENT];
 						if (maxMsgSize > 0) {
-							AtomicInteger maxLen = msgMaxGetPMsgSizeMap.get(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
+							AtomicInteger maxLen = msgMaxGetMsgSizeMap.get(lookupMaxGetMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT);
 							if (maxLen == null) {
-								msgMaxGetPMsgSizeMap.put(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
-											, base.meterRegistry.gauge(lookupMaxGetPMsgSize, 
+								msgMaxGetMsgSizeMap.put(lookupMaxGetMsgSize + "_" + queueName + MQConstants.MQPER_PERSISTENT
+											, base.meterRegistry.gauge(lookupMaxGetMsgSize, 
 										Tags.of("queueManagerName", this.queueManager,
 												"queueName", queueName,
 												"queueType", queueType,
@@ -670,10 +676,10 @@ public class pcfQueue {
 								MQConstants.MQPER_NOT_PERSISTENT);						
 						maxMsgSize = maxValues[MQConstants.MQPER_NOT_PERSISTENT];
 						if (maxMsgSize > 0) {
-							AtomicInteger maxLen = msgMaxGetPMsgSizeMap.get(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
+							AtomicInteger maxLen = msgMaxGetMsgSizeMap.get(lookupMaxGetMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT);
 							if (maxLen == null) {
-								msgMaxGetPMsgSizeMap.put(lookupMaxGetPMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
-											, base.meterRegistry.gauge(lookupMaxGetPMsgSize, 
+								msgMaxGetMsgSizeMap.put(lookupMaxGetMsgSize + "_" + queueName + MQConstants.MQPER_NOT_PERSISTENT
+											, base.meterRegistry.gauge(lookupMaxGetMsgSize, 
 										Tags.of("queueManagerName", this.queueManager,
 												"queueName", queueName,
 												"queueType", queueType,

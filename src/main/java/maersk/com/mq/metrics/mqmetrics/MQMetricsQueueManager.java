@@ -21,6 +21,7 @@ import javax.annotation.PostConstruct;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -137,12 +138,21 @@ public class MQMetricsQueueManager {
 		return this.local;
 	}
 	
-	@Value("${ibm.mq.pcf.parameters:}")
+	@Value("${ibm.mq.pcf.parameters:#{null}}")
 	private String[] pcfParameters;	
 	private int[] searchPCF;
+	public void setSearchPCF(int[] v) {
+		this.searchPCF = v;
+	}
+	public int[] getSearchPCF() {
+		return this.searchPCF;
+	}
 	
-	@Value("${ibm.mq.pcf.browse:}")
+	@Value("${ibm.mq.pcf.browse:false}")
 	private boolean pcfBrowse;	
+	public boolean getBrowse() {
+		return this.pcfBrowse;
+	}
 	
 	@Value("${info.app.version:}")
 	private String appversion;	
@@ -154,7 +164,7 @@ public class MQMetricsQueueManager {
     private Map<String,AtomicInteger>versionMap = new HashMap<String,AtomicInteger>();
 
     protected static final String runMode = "mq:runMode";
-    protected static final String version = "mq:MonitoringVersion";
+    protected static final String version = "mq:monitoringVersion";
 	
 	/*
 	 * Validate connection name and userID
@@ -173,15 +183,41 @@ public class MQMetricsQueueManager {
 		return ret;
 	}
 	
-    private MQQueueManager queManager = null;
-    //private PCFMessageAgent messageAgent = null;
-    
+    private MQQueueManager queManager;
+    public void setQmgr(MQQueueManager qm) {
+    	this.queManager = qm;
+    }
+    public MQQueueManager getQmgr() {
+    	return this.queManager;
+    }
+
     private MQQueue queue = null;
-    private MQGetMessageOptions gmo = null;
+    public void setQueue(MQQueue q) {
+    	this.queue = q;
+    }
+    public MQQueue getQueue() {
+    	return this.queue;
+    }
     
+    private MQGetMessageOptions gmo = null;
+    public void setGMO(MQGetMessageOptions gmo) {
+    	this.gmo = gmo;
+    }
+    public MQGetMessageOptions getGMO() {
+    	return this.gmo;
+    }
+    
+	private int qmgrAccounting;
+	public synchronized void setAccounting(int v) {		
+		this.qmgrAccounting = v;
+	}
+	public synchronized int getAccounting() {		
+		return this.qmgrAccounting;
+	}
+
     @Autowired
     private MQMonitorBase base;
-    
+
     /*
      * Constructor
      */
@@ -191,20 +227,26 @@ public class MQMetricsQueueManager {
 	@PostConstruct
 	public void init() {
 
-		this.searchPCF = new int[this.pcfParameters.length];		
-		int array = 0;
-		for (String w: this.pcfParameters) {
-			final int x = MQConstants.getIntValue(w);
-			this.searchPCF[array] = x;
-			array++;		
+		if (this.pcfParameters != null) {
+			setSearchPCF(new int[this.pcfParameters.length]);
+			int[] s = new int[this.pcfParameters.length];
+			int array = 0;
+		
+			for (String w: this.pcfParameters) {
+				final int x = MQConstants.getIntValue(w);
+				s[array] = x;
+				array++;		
+			}
+			setSearchPCF(s);
+			Arrays.sort(getSearchPCF());		
+		} else {
+			log.info("No accounting metrics specified to be collected");
 		}
-		Arrays.sort(this.searchPCF);		
-
 		setRunMode();
 		setVersion();
 		
 	}
-	
+		
 	/*
 	 * Create an MQQueueManager object
 	 */
@@ -299,7 +341,6 @@ public class MQMetricsQueueManager {
 				log.debug("Attemping to connect using local bindings");
 				log.debug("Queue Man	: " + this.queueManager);
 			}
-			
 		}
 		
 		if (getOnceOnly()) {
@@ -321,7 +362,7 @@ public class MQMetricsQueueManager {
 		}
 		log.info("Connection to queue manager established ");
 		
-		this.queManager = qmgr;
+		setQmgr(qmgr);
 		
 		return qmgr;
 	}
@@ -451,28 +492,56 @@ public class MQMetricsQueueManager {
 	 *        :
 	 *        
 	 */
-	public List<AccountingEntity> readAccountData(String queueName) throws MQDataException, IOException {
-		
+	public List<AccountingEntity> readAccountData(String queueName, int acctQ) throws MQDataException, IOException {
+
+		final List<AccountingEntity> stats = new ArrayList<AccountingEntity>();
+		stats.clear();
+
 		// https://github.com/icpchave/MQToolsBox/blob/master/src/cl/continuum/mq/pfc/samples/ReadPCFMessages.java
+		if (getSearchPCF().length == 0) {
+			return stats;
+		}
+
+		if ((getAccounting() == MQConstants.MQMON_NONE) || (acctQ == MQConstants.MQMON_OFF)) {
+			if (getAccounting() == MQConstants.MQMON_NONE) {
+				if (base.getDebugLevel() > MQPCFConstants.DEBUG) {
+					log.debug("Queue Manager queue accounting is switch off");
+				}
+			}
+			if (acctQ == MQConstants.MQMON_OFF) {
+				if (base.getDebugLevel() > MQPCFConstants.DEBUG) {
+					log.debug("Queue accounting is switch off for " + queueName);
+				}
+			}
+			return stats;
+		}
 		
-		if (base.getDebugLevel() == MQPCFConstants.TRACE) {
+		if ((getAccounting() == MQConstants.MQMON_OFF) && (acctQ == MQConstants.MQMON_Q_MGR)) {
+			if (base.getDebugLevel() > MQPCFConstants.DEBUG) {
+				log.debug("Queue Manager queue accounting is set to OFF, queue accounting is set to QMGR for queue : " + queueName);
+			}
+			return stats;
+		}
+		
+		/*
+		 * Queue Manager should be on or the queue on ...
+		 */
+		if (base.getDebugLevel() >= MQPCFConstants.TRACE) {
 			log.info("Looking for pcf messages for queue = " + queueName);
 
 			DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss");
 			Date date = new Date();
 			log.info("Start accounting processing : " + dateFormat.format(date));
 		}
-		final List<AccountingEntity> stats = new ArrayList<AccountingEntity>();
-		stats.clear();
 		
 		try {
-			if (this.queue == null) {
+			if (getQueue() == null) {
 				int openOptions = MQConstants.MQOO_INPUT_AS_Q_DEF |
 						MQConstants.MQOO_BROWSE |
 						MQConstants.MQOO_FAIL_IF_QUIESCING;
 				
-				this.queue = this.queManager.accessQueue("SYSTEM.ADMIN.ACCOUNTING.QUEUE", openOptions);
-				this.gmo = new MQGetMessageOptions();
+				setQueue(getQmgr().accessQueue("SYSTEM.ADMIN.ACCOUNTING.QUEUE", openOptions));
+				setGMO(new MQGetMessageOptions());
 
 			}
 			
@@ -480,14 +549,11 @@ public class MQMetricsQueueManager {
 					 	MQConstants.MQGMO_BROWSE_FIRST |
 						MQConstants.MQGMO_CONVERT;
 			
-			this.gmo.options = gmoptions;
-			this.gmo.matchOptions = MQConstants.MQMO_MATCH_MSG_ID  | MQConstants.MQMO_MATCH_CORREL_ID;
+			getGMO().options = gmoptions;
+			getGMO().matchOptions = MQConstants.MQMO_MATCH_MSG_ID  | MQConstants.MQMO_MATCH_CORREL_ID;
 							
 			String pcfQueueName = "";
 			int[] pcfArrayValue = {0};
-			
-			int[] putCount = {0,0};
-			
 			int pcfType = 0;
 			
 			MQMessage message = new MQMessage ();
@@ -496,7 +562,7 @@ public class MQMetricsQueueManager {
 			
 				message.messageId = MQConstants.MQMI_NONE;
 				message.correlationId = MQConstants.MQMI_NONE;
-				this.queue.get (message, this.gmo);
+				getQueue().get (message, getGMO());
 			
 				PCFMessage pcf = new PCFMessage (message);
 				Enumeration<PCFParameter> parms = pcf.getParameters();
@@ -529,7 +595,7 @@ public class MQMetricsQueueManager {
 												break; // get next group record
 
 											case (MQConstants.MQIAMO_GETS):
-												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_GETS) >= 0) {
+												if (Arrays.binarySearch(getSearchPCF(), MQConstants.MQIAMO_GETS) >= 0) {
 													MQCFIL max = (MQCFIL) grpPCFParams;
 													pcfArrayValue = max.getValues();
 													if (pcfQueueName != "") {
@@ -540,7 +606,7 @@ public class MQMetricsQueueManager {
 														ae.setValues(pcfArrayValue);
 														if (pcfArrayValue[0] > 0) {
 															stats.add(ae);
-															if (base.getDebugLevel() == MQPCFConstants.DEBUG) {
+															if (base.getDebugLevel() >= MQPCFConstants.DEBUG) {
 																log.info("GETS: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
 															}
 														}														
@@ -549,7 +615,7 @@ public class MQMetricsQueueManager {
 												break;
 
 											case (MQConstants.MQIAMO_PUTS):
-												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_PUTS) >= 0) {
+												if (Arrays.binarySearch(getSearchPCF(), MQConstants.MQIAMO_PUTS) >= 0) {
 													MQCFIL max = (MQCFIL) grpPCFParams;
 													pcfArrayValue = max.getValues();
 													if (pcfQueueName != "") {
@@ -560,7 +626,7 @@ public class MQMetricsQueueManager {
 														ae.setValues(pcfArrayValue);
 														if (pcfArrayValue[0] > 0) {
 															stats.add(ae);
-															if (base.getDebugLevel() == MQPCFConstants.DEBUG) {
+															if (base.getDebugLevel() >= MQPCFConstants.DEBUG) {
 																log.info("PUTS: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
 															}
 														}														
@@ -569,7 +635,7 @@ public class MQMetricsQueueManager {
 												break;
 											
 											case (MQConstants.MQIAMO_PUT_MAX_BYTES):
-												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_PUT_MAX_BYTES) >= 0) {
+												if (Arrays.binarySearch(getSearchPCF(), MQConstants.MQIAMO_PUT_MAX_BYTES) >= 0) {
 													MQCFIL max = (MQCFIL) grpPCFParams;
 													pcfArrayValue = max.getValues();
 													if (pcfQueueName != "") {
@@ -580,7 +646,7 @@ public class MQMetricsQueueManager {
 														ae.setValues(pcfArrayValue);
 														if (pcfArrayValue[0] > 0) {
 															stats.add(ae);
-															if (base.getDebugLevel() == MQPCFConstants.DEBUG) {
+															if (base.getDebugLevel() >= MQPCFConstants.DEBUG) {
 																log.info("PUT MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
 															}
 														}
@@ -589,7 +655,7 @@ public class MQMetricsQueueManager {
 												break;
 
 											case (MQConstants.MQIAMO_GET_MAX_BYTES):
-												if (Arrays.binarySearch(this.searchPCF, MQConstants.MQIAMO_GET_MAX_BYTES) >= 0) {							
+												if (Arrays.binarySearch(getSearchPCF(), MQConstants.MQIAMO_GET_MAX_BYTES) >= 0) {							
 													MQCFIL max = (MQCFIL) grpPCFParams;
 													pcfArrayValue = max.getValues();
 													if (pcfQueueName != "") {
@@ -601,7 +667,7 @@ public class MQMetricsQueueManager {
 														ae.setValues(pcfArrayValue);
 														if (pcfArrayValue[0] > 0) {
 															stats.add(ae);
-															if (base.getDebugLevel() == MQPCFConstants.DEBUG) {
+															if (base.getDebugLevel() >= MQPCFConstants.DEBUG) {
 																log.info("GET max: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");	
 															}
 														}
@@ -628,12 +694,12 @@ public class MQMetricsQueueManager {
 				 *    if we want to, remove the message from the accounting queue
 				 */
 				if (pcfQueueName.equals(queueName)) {
-					if (!this.pcfBrowse) {
-						this.gmo.options = MQConstants.MQGMO_MSG_UNDER_CURSOR | 
+					if (!getBrowse()) {
+						getGMO().options = MQConstants.MQGMO_MSG_UNDER_CURSOR | 
 								MQConstants.MQGMO_NO_WAIT | 
 								MQConstants.MQGMO_CONVERT;
 						try {
-							this.queue.get (message, this.gmo);
+							getQueue().get (message, getGMO());
 							if (base.getDebugLevel() == MQPCFConstants.DEBUG ) {
 								log.info("Deleting message pcf for queue : " + queueName);
 							}
@@ -646,7 +712,7 @@ public class MQMetricsQueueManager {
 					}
 				}
 				
-				this.gmo.options = MQConstants.MQGMO_BROWSE_NEXT | 
+				getGMO().options = MQConstants.MQGMO_BROWSE_NEXT | 
 						MQConstants.MQGMO_NO_WAIT | 
 						MQConstants.MQGMO_CONVERT;
 				

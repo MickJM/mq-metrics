@@ -30,31 +30,44 @@ import io.micrometer.core.instrument.Meter.Id;
 import maersk.com.mq.json.entities.*;
 import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
 import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
+import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
+import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
+import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @RestController
 @ComponentScan
 @RequestMapping(value="/json")
-public class JSONController extends MQBaseNotNeeded {
-	//@GetMapping("/json")
+public class JSONController  {
 
 	static Logger log = Logger.getLogger(JSONController.class);
 
 	@Autowired
 	public MeterRegistry meterRegistry;
 
+	@Autowired
+	private MQMonitorBase base;
+	
 	@Value("${ibm.mq.json.sort:false}")	
 	private boolean sort;
+	public boolean getSort() {
+		return this.sort;
+	}
 	
 	@Value("${ibm.mq.json.order:ascending}")	
 	private String order;
+	public void setOrder(String v) {
+		this.order = v;
+	}
+	public String getOrder() {
+		return this.order;
+	}
 	
 	@RequestMapping(method=RequestMethod.GET, value="/getallmetrics", produces={"application/json"})
 	public ResponseEntity<Object> allmetrics() {
 
-		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("REST JSON API invoked"); }
+		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.debug("REST JSON API invoked"); }
 		
-		List<Object> entities = new ArrayList<Object>();
-		
+		List<Object> entities = new ArrayList<Object>();		
 		List<Metric> metrics = new ArrayList<Metric>();
 		MetricType mt = new MetricType();
 		mt.setName("metrics");
@@ -76,7 +89,6 @@ public class JSONController extends MQBaseNotNeeded {
 			if (tags != null) {
 				m.tags = tags;
 			}
-	
 			checkType(metrics, id, m, tags);
 		}
 		
@@ -85,13 +97,15 @@ public class JSONController extends MQBaseNotNeeded {
 		return new ResponseEntity<Object>(entities, HttpStatus.OK);
 	}
 
+	/*
+	 * URI for mq metrics
+	 */
 	@RequestMapping(method=RequestMethod.GET, value="/getmqmetrics", produces={"application/json"})
 	public ResponseEntity<Object> mqmetrics() {
 
-		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("REST MQ JSON API invoked"); }
+		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.debug("REST MQ JSON API invoked"); }
 		
 		List<Object> entities = new ArrayList<Object>();
-		
 		List<Metric> metrics = new ArrayList<Metric>();
 		MetricType mt = new MetricType();
 		mt.setName("metrics");
@@ -106,17 +120,17 @@ public class JSONController extends MQBaseNotNeeded {
 		        .collect(Collectors.toList());
 	
 		/*
-		 * Sort, if we have requred it
+		 * Sort, if we have require it
 		 */
 		if (this.sort) {
-			if (this.order.isEmpty() || this.order == null) {
-				this.order = "ascending";
+			if (getOrder().isEmpty() || getOrder() == null) {
+				setOrder("ascending");
 			}
 			Comparator<Meter.Id> byType = (Id a, Id b) -> (a.getName().compareTo(b.getName()));
-			if (this.order.equals("ascending")) {
+			if (getOrder().equals("ascending")) {
 				Collections.sort(filter, byType);
 			}
-			if (this.order.equals("descending")) {
+			if (getOrder().equals("descending")) {
 				Collections.sort(filter, byType.reversed());
 			}
 		}
