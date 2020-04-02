@@ -30,7 +30,6 @@ import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
 import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
@@ -46,6 +45,9 @@ public class pcfQueueManager {
 	private int resetIterations;
 
     private PCFMessageAgent messageAgent = null;
+    private PCFMessageAgent getMessageAgent() {
+    	return this.messageAgent;
+    }
 
     @Autowired
     private MQMonitorBase base;
@@ -81,6 +83,14 @@ public class pcfQueueManager {
 		this.queueMonitoringFromQmgr = value;
 	}
 
+	private int savedQAcct;
+    public int getSavedQAcct() {
+		return savedQAcct;
+    }
+	public void setSavedQAcct(int value) {
+		this.savedQAcct = value;
+	}
+	
 	private boolean qAcct;
 	public void setQAcct(boolean v) {
 		this.qAcct = v;
@@ -104,7 +114,7 @@ public class pcfQueueManager {
      */
     public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
-    	this.queueManager = this.messageAgent.getQManagerName().trim();    	
+    	this.queueManager = getMessageAgent().getQManagerName().trim();    	
     }
 	
     /*
@@ -130,8 +140,7 @@ public class pcfQueueManager {
 
 		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.trace("pcfQueueManager: checkQueueManagerCluster"); }
 
-        int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
-        
+        int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };        
         PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CLUSTER_Q_MGR);
         pcfRequest.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, this.queueManager); 
         pcfRequest.addParameter(MQConstants.MQIACF_CLUSTER_Q_MGR_ATTRS, pcfParmAttrs);
@@ -140,7 +149,7 @@ public class pcfQueueManager {
          *  if an error occurs, ignore it, as the queue manager may not belong to a cluster
          */
         try {
-	        PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);
+	        PCFMessage[] pcfResponse = getMessageAgent().send(pcfRequest);
 	        PCFMessage response = pcfResponse[0];
 	        String clusterNames = response.getStringParameterValue(MQConstants.MQCA_CLUSTER_NAME);
 	        setQueueManagerClusterName(clusterNames.trim());
@@ -163,7 +172,7 @@ public class pcfQueueManager {
 		int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };
 		PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_MGR);
 		pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_ATTRS, pcfParmAttrs);
-		PCFMessage[] pcfResponse = this.messageAgent.send(pcfRequest);		
+		PCFMessage[] pcfResponse = getMessageAgent().send(pcfRequest);		
 		PCFMessage response = pcfResponse[0];
 	
 		/*
@@ -175,11 +184,30 @@ public class pcfQueueManager {
 		/*
 		 *  Save the queue accounting
 		 */
-		int qAcct = response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q);
-		metqm.setAccounting(qAcct);
-
+		int qAcctValue = response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q);
+		if (getSavedQAcct() != response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q)) {
+			metqm.setAccounting(qAcctValue);
+			setSavedQAcct(qAcctValue);
+			setQAcct(true);
+		}
+		
 		if (getQAcct()) {
-			log.info("Queue manager accounting is : " + metqm.getAccounting());
+			String s = "";
+			switch (metqm.getAccounting()) {
+				case MQConstants.MQMON_NONE:
+					s = "NONE";
+					break;
+				case MQConstants.MQMON_OFF:
+					s = "OFF";
+					break;
+				case MQConstants.MQMON_ON:
+					s = "ON";
+					break;
+				default:
+					s = "OFF";
+					break;	
+			}
+			log.info("Queue manager accounting is set to " + s);
 			setQAcct(false);
 		}
 		/*
@@ -187,7 +215,7 @@ public class pcfQueueManager {
 		 */
 		pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_MGR_STATUS);
 		pcfRequest.addParameter(MQConstants.MQIACF_Q_MGR_STATUS_ATTRS, pcfParmAttrs);
-		pcfResponse = this.messageAgent.send(pcfRequest);		
+		pcfResponse = getMessageAgent().send(pcfRequest);		
 		response = pcfResponse[0];       	
 		
 		/*

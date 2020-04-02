@@ -1,6 +1,7 @@
 package maersk.com.mq.metrics.mqmetrics;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -70,7 +71,7 @@ public class MQMetricsQueueManager {
 	public void setQueueManager(String v) {
 		this.queueManager = v;
 	}
-	public String getQueueManager() { return this.queueManager; }
+	public String getQueueManagerName() { return this.queueManager; }
 	
 	// hostname(port)
 	@Value("${ibm.mq.connName}")
@@ -139,7 +140,10 @@ public class MQMetricsQueueManager {
 	}
 	
 	@Value("${ibm.mq.pcf.parameters:#{null}}")
-	private String[] pcfParameters;	
+	private String[] pcfParameters;
+	private String[] getPCFParameters() {
+		return this.pcfParameters;
+	}
 	private int[] searchPCF;
 	public void setSearchPCF(int[] v) {
 		this.searchPCF = v;
@@ -227,18 +231,19 @@ public class MQMetricsQueueManager {
 	@PostConstruct
 	public void init() {
 
-		if (this.pcfParameters != null) {
-			setSearchPCF(new int[this.pcfParameters.length]);
-			int[] s = new int[this.pcfParameters.length];
+		if (getPCFParameters() != null) {
+			setSearchPCF(new int[getPCFParameters().length]);
+			int[] s = new int[getPCFParameters().length];
 			int array = 0;
 		
-			for (String w: this.pcfParameters) {
+			for (String w: getPCFParameters()) {
 				final int x = MQConstants.getIntValue(w);
 				s[array] = x;
 				array++;		
 			}
 			setSearchPCF(s);
-			Arrays.sort(getSearchPCF());		
+			Arrays.sort(getSearchPCF());	
+			
 		} else {
 			log.info("No accounting metrics specified to be collected");
 		}
@@ -293,7 +298,7 @@ public class MQMetricsQueueManager {
 				log.debug("Host		: " + getHostName());
 				log.debug("Channel	: " + getChannelName());
 				log.debug("Port		: " + getPort());
-				log.debug("Queue Man	: " + getQueueManager());
+				log.debug("Queue Man	: " + getQueueManagerName());
 				log.debug("User		: " + getUserId());
 				log.debug("Password	: **********");
 				if (usingSSL()) {
@@ -339,12 +344,12 @@ public class MQMetricsQueueManager {
 		} else {
 			if (base.getDebugLevel() == MQPCFConstants.DEBUG) {
 				log.debug("Attemping to connect using local bindings");
-				log.debug("Queue Man	: " + this.queueManager);
+				log.debug("Queue Man	: " + getQueueManagerName());
 			}
 		}
 		
 		if (getOnceOnly()) {
-			log.info("Attempting to connect to queue manager " + this.queueManager);
+			log.info("Attempting to connect to queue manager " + getQueueManagerName());
 			setOnceOnly(false);
 		}
 		
@@ -355,13 +360,14 @@ public class MQMetricsQueueManager {
 		 */
 		MQQueueManager qmgr = null;
 		if (isRunningLocal()) {
-			qmgr = new MQQueueManager(this.queueManager);
+			qmgr = new MQQueueManager(getQueueManagerName());
 			log.info("Local connection established ");
+		
 		} else {
-			qmgr = new MQQueueManager(this.queueManager, env);
+			qmgr = new MQQueueManager(getQueueManagerName(), env);
+		
 		}
 		log.info("Connection to queue manager established ");
-		
 		setQmgr(qmgr);
 		
 		return qmgr;
@@ -373,9 +379,9 @@ public class MQMetricsQueueManager {
 	public PCFMessageAgent createMessageAgent(MQQueueManager queManager) throws MQDataException {
 		
 		log.info("Attempting to create a PCFAgent ");
-		PCFMessageAgent pcfmsgagent = new PCFMessageAgent(queManager);		
+		PCFMessageAgent pcfmsgagent = new PCFMessageAgent(queManager);
 		log.info("PCFAgent created successfully");
-
+		
 		return pcfmsgagent;	
 		
 	}
@@ -398,10 +404,13 @@ public class MQMetricsQueueManager {
 			if (matcher.matches()) {
 				this.hostName = matcher.group(1).trim();
 				this.port = Integer.parseInt(matcher.group(2).trim());
+			
 			} else {
 				log.error("While attempting to connect to a queue manager, the connName is invalid ");
 				System.exit(MQPCFConstants.EXIT_ERROR);				
+			
 			}
+			
 		} else {
 			log.error("While attempting to connect to a queue manager, the connName is missing  ");
 			System.exit(MQPCFConstants.EXIT_ERROR);
@@ -449,9 +458,8 @@ public class MQMetricsQueueManager {
 			mode = MQPCFConstants.MODE_CLIENT;
 		}
 		
-		AtomicInteger rMode = runModeMap.get(runMode);
 		runModeMap.put(runMode, base.meterRegistry.gauge(runMode, 
-				Tags.of("queueManagerName", this.queueManager),
+				Tags.of("queueManagerName", getQueueManagerName()),
 				new AtomicInteger(mode)));
 	}
 	
@@ -557,7 +565,6 @@ public class MQMetricsQueueManager {
 			int pcfType = 0;
 			
 			MQMessage message = new MQMessage ();
-
 			while (true) {
 			
 				message.messageId = MQConstants.MQMI_NONE;
@@ -715,29 +722,8 @@ public class MQMetricsQueueManager {
 				getGMO().options = MQConstants.MQGMO_BROWSE_NEXT | 
 						MQConstants.MQGMO_NO_WAIT | 
 						MQConstants.MQGMO_CONVERT;
-				
-				/*
-				if (foundPCFEntry) {
-					AccountingEntity ae = new AccountingEntity();
-					ae.setType(pcfType);
-					ae.setQueueName(queueName);
-					ae.setValues(pcfArrayValue);
-					if (pcfArrayValue[0] > 0) {
-						stats.add(ae);
-						if (pcfType == MQConstants.MQIAMO_PUT_MAX_BYTES) {
-							log.info("PUT MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
-						}
-						if (pcfType == MQConstants.MQIAMO_GET_MAX_BYTES) {
-							log.info("GET MAX: " + pcfQueueName + " { " + pcfArrayValue[0] + ", " + pcfArrayValue[1] + " } ");
-						}
-
-					}
-					
-				}
-				*/
-				
+								
 			} // end of loop
-			
 			
 		} catch (MQException e) {
 			// not bothered if we get an error ...

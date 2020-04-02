@@ -41,8 +41,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.Metrics;
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 
 @RestController

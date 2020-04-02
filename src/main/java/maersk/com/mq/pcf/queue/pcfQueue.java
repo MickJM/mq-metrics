@@ -40,7 +40,6 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.accounting.AccountingEntity;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
 import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
@@ -99,20 +98,15 @@ public class pcfQueue {
 	
 	protected static final String lookupPutMsgCount = "mq:queuePutMsgCount";
 	protected static final String lookupGetMsgCount = "mq:queueGetMsgCOunt";
-	
-//	protected static final String lookupMaxPutNMsgSize = "mq:queueMaxPutNonPMsgSize";
-//	protected static final String lookupMaxGetNMsgSize = "mq:queueMaxGetNonPMsgSize";
-
-	//protected static final String lookupPutCount = "mq:putCount";
-	//protected static final String lookupPut1Count = "mq:put1Count";
-	//protected static final String lookupPutBytes = "mq:putBytes";
-
-	
+		
     private PCFMessageAgent messageAgent;
 	public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
     }
+	private PCFMessageAgent getMessageAgent() {
+		return this.messageAgent;
+	}
 	
 	@Autowired
 	private MQMetricsQueueManager conn;
@@ -177,7 +171,7 @@ public class pcfQueue {
 		 */
 		PCFMessage[] pcfResponse = null;
 		try {
-			pcfResponse = this.messageAgent.send(pcfRequest);
+			pcfResponse = getMessageAgent().send(pcfRequest);
 		} catch (Exception e) {
 			if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.warn("pcfQueue: no response returned - " + e.getMessage()); }
 			
@@ -235,10 +229,10 @@ public class pcfQueue {
 					PCFMessage[] pcfResResp = null;
 					if (qType != MQConstants.MQQT_ALIAS) {
 						pcfInqStat.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_STATUS);					
-						pcfResStat = this.messageAgent.send(pcfInqStat);
+						pcfResStat = getMessageAgent().send(pcfInqStat);
 						PCFMessage pcfReset = new PCFMessage(MQConstants.MQCMD_RESET_Q_STATS);
 						pcfReset.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-						pcfResResp = this.messageAgent.send(pcfReset);
+						pcfResResp = getMessageAgent().send(pcfReset);
 						if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.debug("pcfQueue: inquire queue status response"); }
 
 					}
@@ -773,7 +767,7 @@ public class pcfQueue {
 		PCFMessage pcfInqHandle = new PCFMessage(MQConstants.MQCMD_INQUIRE_Q_STATUS);	
 		pcfInqHandle.addParameter(MQConstants.MQCA_Q_NAME, queueName);
 		pcfInqHandle.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_HANDLE);					
-		PCFMessage[] pcfResHandle = this.messageAgent.send(pcfInqHandle);
+		PCFMessage[] pcfResHandle = getMessageAgent().send(pcfInqHandle);
 
 		int seq = 0;
 		for (PCFMessage pcfMsg : pcfResHandle) {

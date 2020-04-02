@@ -28,8 +28,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Meter.Id;
 
 import maersk.com.mq.json.entities.*;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
 import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
@@ -62,6 +60,9 @@ public class JSONController  {
 		return this.order;
 	}
 	
+	/*
+	 * URI for ALL metrics
+	 */
 	@RequestMapping(method=RequestMethod.GET, value="/getallmetrics", produces={"application/json"})
 	public ResponseEntity<Object> allmetrics() {
 

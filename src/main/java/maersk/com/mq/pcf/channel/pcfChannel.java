@@ -65,7 +65,9 @@ public class pcfChannel {
     public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
     	this.queueManager = this.messageAgent.getQManagerName().trim();    	
-    
+    }
+    private PCFMessageAgent getMessageAgent() {
+    	return this.messageAgent;
     }
 
     @Autowired
@@ -148,7 +150,7 @@ public class pcfChannel {
 		
 		PCFMessage[] pcfResponse = null;
 		try {
-			pcfResponse = this.messageAgent.send(pcfRequest);
+			pcfResponse = getMessageAgent().send(pcfRequest);
 		
 		} catch (Exception e) {
 			if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfChannel: no response returned - " + e.getMessage()); }
@@ -184,7 +186,7 @@ public class pcfChannel {
 					// loop through each response
 			        PCFMessage[] pcfResp = null;
 					try {
-						pcfResp = this.messageAgent.send(pcfReq);
+						pcfResp = getMessageAgent().send(pcfReq);
 						if (base.getDebugLevel() == MQPCFConstants.TRACE) { log.trace("pcfChannel: inquire channel status response "); }
 						PCFMessage pcfStatus = pcfResp[MQPCFConstants.BASE];
 			

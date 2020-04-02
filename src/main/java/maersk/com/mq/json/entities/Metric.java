@@ -2,6 +2,9 @@ package maersk.com.mq.json.entities;
 
 import java.util.List;
 
+/*
+ * Metric object
+ */
 public class Metric {
 
 	public String name;

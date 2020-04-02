@@ -29,20 +29,6 @@ public class MQMonitorBase implements MQPCFConstants {
 	protected String _debugLevel;
 	
 	protected int lev;
-	//public enum LEVEL {	
-	//	NONE,
-	//	INFO,
-	//	DEBUG,
-	//	WARN,
-	//	ERROR,
-	//	TRACE
-	//}
-
-	
-	//protected void setDebugLevel(String level) {
-	//	this.lev = LEVEL.valueOf(level);
-	//}
-	
 	
 	@Value("${ibm.mq.clearMetrics:10}")
 	private int CONST_CLEARMETRICS;

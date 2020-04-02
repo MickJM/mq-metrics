@@ -28,9 +28,7 @@ import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
-import maersk.com.mq.metrics.mqmetrics.MQBaseNotNeeded.LEVEL;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 
 @Component
@@ -40,6 +38,12 @@ public class pcfListener {
 
 	private String queueManager;
     private PCFMessageAgent messageAgent;
+    private PCFMessageAgent getMessageAgent() {
+    	return this.messageAgent;
+    }
+    public void setMessageAgent(PCFMessageAgent v) {
+    	this.messageAgent = v;
+    }
     
     //Listener status maps
     private Map<String,AtomicInteger>listenerStatusMap = new HashMap<String, AtomicInteger>();
@@ -95,14 +99,14 @@ public class pcfListener {
     }
     
     /*
-     * Set the MQ message agent and obtain the queue manager name
+     * Set queue manager name
      */
-    public void setMessageAgent(PCFMessageAgent agent) {
-    	this.messageAgent = agent;
-    	this.queueManager = this.messageAgent.getQManagerName().trim();    	
+    public void setQueueManagerName() {
+    	this.queueManager = getMessageAgent().getQManagerName().trim();    	
     	setTypeList();
+
     }
-        
+    
     /*
      * Get the listeners ... 
      */
@@ -135,7 +139,7 @@ public class pcfListener {
 		
 		PCFMessage[] pcfResponse = null;
 		try {
-			pcfResponse = this.messageAgent.send(pcfRequest);
+			pcfResponse = getMessageAgent().send(pcfRequest);
 
 		} catch (Exception e) {
 			if (base.getDebugLevel() == MQPCFConstants.WARN) { log.warn("pcfListener: no response returned - " + e.getMessage()); }
@@ -173,7 +177,7 @@ public class pcfListener {
 				         * Listener status
 				         */
 						try {			
-							pcfResp = this.messageAgent.send(pcfReq);
+							pcfResp = getMessageAgent().send(pcfReq);
 							int listenerStatus = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_LISTENER_STATUS);					
 							portNumber = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_PORT);
 							type = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);

@@ -1,5 +1,8 @@
 package maersk.com.mq.metrics.accounting;
 
+/*
+ * Accounting PCF entity
+ */
 public class AccountingEntity {
 
 	private int type;
