@@ -29,7 +29,9 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PostConstruct;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -46,15 +48,15 @@ import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
 @RestController
 @Component
 public class MQMetricSummary {
-	
+
+    private final static Logger log = LoggerFactory.getLogger(MQMetricSummary.class);
+
 	private static final int DAY_ONE = 1;
-	
 	protected static final String lookupChlCounts = "mq:cummulativeChannelCounts";
 	
 	@Value("${application.save.metrics.filename:nofile.json}")
     private String metricsFileName;
 
-    private Logger log = Logger.getLogger(this.getClass());
     private Channels channels;
     
     private Map<String,MetricChannelDetails>cummChannelCounts = new HashMap<String, MetricChannelDetails>();
@@ -68,8 +70,9 @@ public class MQMetricSummary {
 
 	@PostConstruct
 	private void init() {
-		if (base.getDebugLevel() == base.TRACE) { log.info("Invoking MQMetricSummary"); }		
+		log.trace("Invoking MQMetricSummary");		
 	}
+	
 	/*
 	 * Load any metrics from the saved file 
 	 */
@@ -95,10 +98,9 @@ public class MQMetricSummary {
 	 */
 	private void LoadMetricsFromFile() throws IOException {
 
-		if (base.getDebugLevel() == base.TRACE) { log.trace("Loading monthly metrics from file ... : " + this.metricsFileName); }
+		log.trace("Loading monthly metrics from file ... : " + this.metricsFileName);
 		log.info("file: " + Paths.get(this.metricsFileName));
 		
-		Path pathToFile = Paths.get(this.metricsFileName);
 		File fileName = new File(this.metricsFileName);
 		if (!fileName.exists()) {
 			this.channels = new Channels();
@@ -142,7 +144,6 @@ public class MQMetricSummary {
 			
 		}
 	}
-	
 		
 	/*
 	 *  Store counts in memory from the initial load 
@@ -200,10 +201,8 @@ public class MQMetricSummary {
 		 *  Should we roll over 'this month' to 'last month' ?
 		 */
 		cal.setTime(today);
-		if (base.getDebugLevel() == base.TRACE) { 
-			log.trace("Today day of week: " + cal.get(Calendar.DAY_OF_MONTH));
-			log.trace(" File day of week: " + met.get(Calendar.DAY_OF_MONTH)); 
-		}
+		log.trace("Today day of week: " + cal.get(Calendar.DAY_OF_MONTH));
+		log.trace(" File day of week: " + met.get(Calendar.DAY_OF_MONTH)); 
 		
 		/*
 		 *  Day of month already matched, assume its been updated, so dont roll over again
@@ -241,8 +240,7 @@ public class MQMetricSummary {
 	 */
 	public void SaveMetrics() {
 		
-		if (base.getDebugLevel() == base.TRACE) { log.info("Saving metric summary to disk ..."); }
-		
+		log.trace("Saving metric summary to disk ..."); 		
 		String fileName = this.metricsFileName;
 		Path path = Paths.get(fileName);
 		
@@ -277,7 +275,7 @@ public class MQMetricSummary {
 			
 		try {
 			
-			if (base.getDebugLevel() == base.TRACE) { log.trace("Creating JSON file :" + fileName ); }
+			log.trace("Creating JSON file :" + fileName ); 
 			ObjectMapper objectMapper = new ObjectMapper();
 			objectMapper.writeValue(new File(fileName),channels);
 			

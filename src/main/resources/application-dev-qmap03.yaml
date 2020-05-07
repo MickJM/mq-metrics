@@ -3,7 +3,7 @@ logging:
     org:
       springframework: OFF
     maersk:
-      com: INFO
+      com: DEBUG
 application:
   save:
     metrics:
@@ -17,28 +17,28 @@ spring:
 ibm:
   mq:
     multiInstance: false
-    queueManager: QMAP01
-    channel: ADMIN.TLS.SVRCONN
-    connName: localhost(1501)
+    queueManager: QMAP03
+    channel: MQ.MONITOR.SVRCONN
+    connName: localhost(1444)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
-    useSSL: true
+    useSSL: false
     user: MQmon01
     password: Passw0rdPassw0rd1234
-    authenricateUsingCSP: true
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
+    ccdtFile1: C:\ProgramData\IBM\MQ\qmgrs\QMAP03\@ipcc\AMQCLCHL.TAB    
     json:
       sort: true
       order: ascending
     objects:
       queues:
-        include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, "*"
+        include: "*"
         exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
       channels:
         include: "*"
-        exclude: SYSTEM.
+        exclude: SYSTEM.,ADMIN.TLS.SVRCONN
       listeners:
         include: "*"
         exclude: SYSTEM.
@@ -64,11 +64,11 @@ management:
     enabled: false
 info:
   app:
-    name: mq-metrics-1.0.0.14
+    name: MQ-Metrics
     description: IBM MQ Metrics
-    version: 1.0.0.14
+    version: 1.0.0.12
     java:
       version: 1.8.0.0
 server:
   port:
-    8081
+    8093

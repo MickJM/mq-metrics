@@ -9,10 +9,9 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import javax.xml.namespace.QName;
-
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +21,10 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.test.context.junit4.SpringRunner;
-
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
-
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tag;
@@ -43,7 +40,7 @@ import maersk.com.mq.json.entities.Metric;
 @Component
 public class MQMetricsApplicationTests {
 
-	static Logger log = Logger.getLogger(MQMetricsApplicationTests.class);
+	private final static Logger log = LoggerFactory.getLogger(MQMetricsApplicationTests.class);
 		
 	@Autowired
 	private MQMetricsQueueManager qman;
@@ -59,7 +56,7 @@ public class MQMetricsApplicationTests {
 
 	@Test
 	@Order(1)
-	public void findGaugeMetrics() {
+	public void findGaugeMetrics() throws MQDataException, ParseException {
 		
 		String mess = "";
 		

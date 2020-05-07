@@ -11,30 +11,31 @@ package maersk.com.mq.metrics.mqmetrics;
  */
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.text.ParseException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.headers.MQDataException;
+import com.ibm.mq.headers.MQExceptionWrapper;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
-//import maersk.com.mq.metricsummary.Channels;
-//import maersk.com.mq.metricsummary.Channel;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
 import maersk.com.mq.json.controller.JSONController;
@@ -42,7 +43,7 @@ import maersk.com.mq.json.controller.JSONController;
 @Component
 public class MQConnection {
 
-    static Logger log = Logger.getLogger(MQConnection.class);
+    private final static Logger log = LoggerFactory.getLogger(MQConnection.class);
 
 	@Value("${application.debug:false}")
     protected boolean _debug;
@@ -151,16 +152,15 @@ public class MQConnection {
 	}
 	
 	@PostConstruct
-	public void setProperties() throws MQException, MQDataException {
+	public void setProperties() throws MQException, MQDataException, MalformedURLException {
 		
-		if (!(base.getDebugLevel() == MQPCFConstants.NONE)) { log.info("MQConnection: Object created"); }
-		//setDebugLevel();
+		log.info("MQConnection: Object created");
 		getChannelObject().loadProperties(this.summaryRequired);
 		
 		/*
 		 * Make a connection to the queue manager
 		 */
-		connectToQueueManager();
+		//connectToQueueManager();
 	}
 	
 	/*
@@ -189,54 +189,41 @@ public class MQConnection {
 			}
 			
 		} catch (PCFException p) {
-			if (base.getDebugLevel() == MQPCFConstants.WARN
-					|| base.getDebugLevel() == MQPCFConstants.TRACE 
-					|| base.getDebugLevel() == MQPCFConstants.ERROR
-					|| base.getDebugLevel() == MQPCFConstants.DEBUG) { 
-				log.error("PCFException " + p.getMessage());
-			}
-			if (base.getDebugLevel() == MQPCFConstants.WARN
-				|| base.getDebugLevel() == MQPCFConstants.TRACE 
-				|| base.getDebugLevel() == MQPCFConstants.ERROR
-				|| base.getDebugLevel() == MQPCFConstants.DEBUG) { 
-					log.warn("PCFException: ReasonCode " + p.getReason());
-			}
-			if (base.getDebugLevel() == MQPCFConstants.TRACE) { p.printStackTrace(); }
+			log.error("PCFException " + p.getMessage());
+			log.error("PCFException: ReasonCode " + p.getReason());
+			if (log.isTraceEnabled()) { p.printStackTrace(); }
 			closeQMConnection(p.getReason());
+			getQueueManagerObject().connectionBroken(p.getReason());
 			queueManagerIsNotRunning(p.getReason());
 			
 		} catch (MQException m) {
-			if (base.getDebugLevel() == MQPCFConstants.WARN
-					|| base.getDebugLevel() == MQPCFConstants.TRACE 
-					|| base.getDebugLevel() == MQPCFConstants.ERROR
-					|| base.getDebugLevel() == MQPCFConstants.DEBUG) { 
-				log.error("MQException " + m.getMessage());
-			}
-			if (base.getDebugLevel() == base.TRACE) { m.printStackTrace(); }
+			log.error("MQException " + m.getMessage());
+			log.error("MQException: ReasonCode " + m.getReason());			
+			if (log.isTraceEnabled()) { m.printStackTrace(); }
 			closeQMConnection(m.getReason());
+			getQueueManagerObject().connectionBroken(m.getReason());
 			queueManagerIsNotRunning(m.getReason());
 			this.messageAgent = null;
+
+		} catch (MQExceptionWrapper w) {
+			log.error("MQExceptionWrapper " + w.getMessage());
+			if (log.isTraceEnabled()) { w.printStackTrace(); }
+			closeQMConnection();
+			getQueueManagerObject().connectionBroken(w.getReason());
+			queueManagerIsNotRunning(w.getReason());
 			
 		} catch (IOException i) {
-			if (base.getDebugLevel() == MQPCFConstants.WARN
-					|| base.getDebugLevel() == MQPCFConstants.TRACE 
-					|| base.getDebugLevel() == MQPCFConstants.ERROR
-					|| base.getDebugLevel() == MQPCFConstants.DEBUG) { 
-				log.error("IOException " + i.getMessage());
-			}
-			if (base.getDebugLevel() == MQPCFConstants.TRACE) { i.printStackTrace(); }
+			log.error("IOException " + i.getMessage());
+			if (log.isTraceEnabled()) { i.printStackTrace(); }
 			closeQMConnection();
+			getQueueManagerObject().connectionBroken();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
-			
+
 		} catch (Exception e) {
-			if (base.getDebugLevel() == MQPCFConstants.WARN
-					|| base.getDebugLevel() == MQPCFConstants.TRACE 
-					|| base.getDebugLevel() == MQPCFConstants.ERROR
-					|| base.getDebugLevel() == MQPCFConstants.DEBUG) { 
-				log.error("Exception " + e.getMessage());
-			}
-			if (base.getDebugLevel() == MQPCFConstants.TRACE) { e.printStackTrace(); }
+			log.error("Exception " + e.getMessage());
+			if (log.isTraceEnabled()) { e.printStackTrace(); }
 			closeQMConnection();
+			getQueueManagerObject().connectionBroken();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 		}
     }
@@ -259,11 +246,12 @@ public class MQConnection {
 	/*
 	 * Connect to the queue manager
 	 */
-	private void connectToQueueManager() throws MQException, MQDataException {
-		if (!(base.getDebugLevel() == MQPCFConstants.NONE)) { log.error("No MQ queue manager object"); }
+	private void connectToQueueManager() throws MQException, MQDataException, MalformedURLException {
+		log.warn("No MQ queue manager object");
 
 		createQueueManagerConnection();
-		setPCFParameters();		
+		setPCFParameters();
+		getQueueManagerObject().connectionBroken();
 	}
 	
 	/*
@@ -271,10 +259,11 @@ public class MQConnection {
 	 * ... once connected, create a messageAgent for PCF commands
 	 * 
 	 */
-	public void createQueueManagerConnection() throws MQException, MQDataException {
+	public void createQueueManagerConnection() throws MQException, MQDataException, MalformedURLException {
 		
 		setMQQueueManager(getMQMetricQueueManager().createQueueManager());
 		setMessageAgent(getMQMetricQueueManager().createMessageAgent(getMQQueueManager()));
+		
 	}
 		
 	/*
@@ -297,9 +286,9 @@ public class MQConnection {
 			if (getChannelObject() != null) {
 				getChannelObject().resetMetrics();
 			}
-			if (getQueueManagerObject() != null) {
-				getQueueManagerObject().resetMetrics();			
-			}
+			//if (getQueueManagerObject() != null) {
+			//	getQueueManagerObject().resetMetrics();			
+			//}
 			if (getQueueObject() != null) {
 				getQueueObject().resetMetrics();			
 			}
@@ -326,6 +315,12 @@ public class MQConnection {
 		updateQueueMetrics();
 		updateChannelMetrics();
 		
+		base.setCounter();
+		if (base.getCounter() % base.getClearMetrics() == 0) {
+			base.setCounter(0);
+			log.debug("Resetting metrics reset counter");
+		}
+
 	}
 	
 	/*

@@ -9,7 +9,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.ComponentScan;
@@ -37,13 +39,13 @@ import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 @RequestMapping(value="/json")
 public class JSONController  {
 
-	static Logger log = Logger.getLogger(JSONController.class);
+	private final static Logger log = LoggerFactory.getLogger(JSONController.class);
 
 	@Autowired
 	public MeterRegistry meterRegistry;
 
-	@Autowired
-	private MQMonitorBase base;
+	//@Autowired
+	//private MQMonitorBase base;
 	
 	@Value("${ibm.mq.json.sort:false}")	
 	private boolean sort;
@@ -66,7 +68,7 @@ public class JSONController  {
 	@RequestMapping(method=RequestMethod.GET, value="/getallmetrics", produces={"application/json"})
 	public ResponseEntity<Object> allmetrics() {
 
-		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.debug("REST JSON API invoked"); }
+		log.debug("REST JSON API invoked");
 		
 		List<Object> entities = new ArrayList<Object>();		
 		List<Metric> metrics = new ArrayList<Metric>();
@@ -104,7 +106,7 @@ public class JSONController  {
 	@RequestMapping(method=RequestMethod.GET, value="/getmqmetrics", produces={"application/json"})
 	public ResponseEntity<Object> mqmetrics() {
 
-		if (base.getDebugLevel() == MQPCFConstants.DEBUG) { log.debug("REST MQ JSON API invoked"); }
+		log.debug("REST MQ JSON API invoked");
 		
 		List<Object> entities = new ArrayList<Object>();
 		List<Metric> metrics = new ArrayList<Metric>();
