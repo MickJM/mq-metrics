@@ -34,6 +34,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
+import maersk.com.mq.pcfConnections.pcfConnections;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
 import maersk.com.mq.metricsummary.MQMetricSummary;
@@ -132,6 +133,11 @@ public class MQConnection {
     private pcfChannel pcfChannel;
     private pcfChannel getChannelObject() {
     	return this.pcfChannel;
+    }
+    @Autowired
+    private pcfConnections pcfConnections;
+    private pcfConnections getConnectionsObject() {
+    	return this.pcfConnections;
     }
 
     @Autowired
@@ -239,7 +245,11 @@ public class MQConnection {
 		getListenerObject().setQueueManagerName();
 		
 		getQueueObject().setMessageAgent(getMessageAgent());		
-		getChannelObject().setMessageAgent(getMessageAgent());	
+		getChannelObject().setMessageAgent(getMessageAgent());
+		
+		getConnectionsObject().setMessageAgent(getMessageAgent());
+		getConnectionsObject().setQueueManagerName();
+		
 		
 	}
 
@@ -314,6 +324,7 @@ public class MQConnection {
 		updateListenerMetrics();
 		updateQueueMetrics();
 		updateChannelMetrics();
+		updateConnectionMetrics();
 		
 		base.setCounter();
 		if (base.getCounter() % base.getClearMetrics() == 0) {
@@ -379,6 +390,18 @@ public class MQConnection {
 
 		getQueueObject().updateQueueMetrics();
 				
+	}
+
+	/*
+	 * Update the Channel Metrics
+	 * 
+	 */
+	private void updateConnectionMetrics() throws MQException, 
+		IOException,  
+		MQDataException {
+		
+		getConnectionsObject().updateConnectionsMetrics();
+		
 	}
 	
 	/*

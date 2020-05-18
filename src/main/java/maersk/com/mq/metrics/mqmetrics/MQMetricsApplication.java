@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan("maersk.com.mq.pcf.queue")
 @ComponentScan("maersk.com.mq.metricsummary")
 @ComponentScan("maersk.com.mq.pcf.channel")
+@ComponentScan("maersk.com.mq.pcfConnections")
 @SpringBootApplication
 @EnableScheduling
 public class MQMetricsApplication {
