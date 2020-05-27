@@ -274,7 +274,7 @@ public class MQMetricsQueueManager {
 	 */
 	@SuppressWarnings("rawtypes")
 	public MQQueueManager createQueueManager() throws MQException, MQDataException, MalformedURLException {
-		
+	
 		Hashtable<String, Comparable> env = new Hashtable<String, Comparable>();
 		
 		if (!isRunningLocal()) { 
@@ -485,9 +485,20 @@ public class MQMetricsQueueManager {
 				new AtomicInteger(v)));		
 	}
 	
-	
+	public void CloseConnection(MQQueueManager qm) {
+
+    	try {
+    		if (qm.isConnected()) {
+	    		log.debug("Closing MQ Connection ");
+    			qm.disconnect();
+    		}
+    	} catch (Exception e) {
+    		// do nothing
+    	}
+		
+	}
 	/*
-	 * Close the connection to the queue manager
+	 * Close the connection and PCF agent to the queue manager
 	 */
 	public void CloseConnection(MQQueueManager qm, PCFMessageAgent ma) {
 		

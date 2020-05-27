@@ -34,11 +34,11 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
-import maersk.com.mq.pcfConnections.pcfConnections;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
 import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
+import maersk.com.mq.pcf.connections.pcfConnections;
 import maersk.com.mq.json.controller.JSONController;
 
 @Component
@@ -96,10 +96,10 @@ public class MQConnection {
     private long resetIterations;
 
     private MQQueueManager queManager = null;
-    private MQQueueManager getMQQueueManager() {
+    public MQQueueManager getMQQueueManager() {
     	return this.queManager;
     }
-    private void setMQQueueManager(MQQueueManager v) {
+    public void setMQQueueManager(MQQueueManager v) {
     	this.queManager = v;
     }
     
@@ -111,19 +111,28 @@ public class MQConnection {
     	this.messageAgent = v;
     }
     
+    private int reasonCode;
+    private void saveReasonCode(int v) {
+    	this.reasonCode = v;
+    }
+    public int getReasonCode() {
+    	return this.reasonCode;
+    }
+    
+    
 	@Autowired
 	private MQMonitorBase base;
 	
     @Autowired
     private pcfQueueManager pcfQueueManager;
-    private pcfQueueManager getQueueManagerObject() {
+    public pcfQueueManager getQueueManagerObject() {
     	return this.pcfQueueManager;
     }
     @Autowired
     private pcfListener pcfListener;
     private pcfListener getListenerObject() {
     	return this.pcfListener;
-    }
+    }    
     @Autowired
     private pcfQueue pcfQueue;
     private pcfQueue getQueueObject() {
@@ -197,6 +206,7 @@ public class MQConnection {
 		} catch (PCFException p) {
 			log.error("PCFException " + p.getMessage());
 			log.error("PCFException: ReasonCode " + p.getReason());
+			saveReasonCode(p.getReason());
 			if (log.isTraceEnabled()) { p.printStackTrace(); }
 			closeQMConnection(p.getReason());
 			getQueueManagerObject().connectionBroken(p.getReason());
@@ -205,6 +215,7 @@ public class MQConnection {
 		} catch (MQException m) {
 			log.error("MQException " + m.getMessage());
 			log.error("MQException: ReasonCode " + m.getReason());			
+			saveReasonCode(m.getReason());
 			if (log.isTraceEnabled()) { m.printStackTrace(); }
 			closeQMConnection(m.getReason());
 			getQueueManagerObject().connectionBroken(m.getReason());
@@ -212,13 +223,13 @@ public class MQConnection {
 			this.messageAgent = null;
 
 		} catch (MQExceptionWrapper w) {
-			log.error("MQExceptionWrapper " + w.getMessage());
-			if (log.isTraceEnabled()) { w.printStackTrace(); }
+			saveReasonCode(9000);
 			closeQMConnection();
 			getQueueManagerObject().connectionBroken(w.getReason());
 			queueManagerIsNotRunning(w.getReason());
 			
 		} catch (IOException i) {
+			saveReasonCode(9001);
 			log.error("IOException " + i.getMessage());
 			if (log.isTraceEnabled()) { i.printStackTrace(); }
 			closeQMConnection();
@@ -226,6 +237,7 @@ public class MQConnection {
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 
 		} catch (Exception e) {
+			saveReasonCode(9002);
 			log.error("Exception " + e.getMessage());
 			if (log.isTraceEnabled()) { e.printStackTrace(); }
 			closeQMConnection();

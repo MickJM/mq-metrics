@@ -1,4 +1,4 @@
-package maersk.com.mq.pcfConnections;
+package maersk.com.mq.pcf.connections;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;

@@ -1,4 +1,4 @@
-package maersk.com.mq.pcfConnections;
+package maersk.com.mq.pcf.connections;
 
 import com.ibm.mq.headers.pcf.PCFMessage;
 

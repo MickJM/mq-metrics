@@ -22,13 +22,13 @@ ibm:
   mq:
     multiInstance: false
     queueManager: QMAP01
-    channel: ADMIN.TLS.SVRCONN
+    channel: MQ.MONITOR.SVRCONN
     connName: localhost(1501)
     sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
     sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
     useSSL: true
     user: MQmon01
-    password: Passw0rdPassw0rd1234
+    password: Passw0rd
     authenricateUsingCSP: true
     local: false
     keepMetricsWhenQueueManagerIsDown: false
