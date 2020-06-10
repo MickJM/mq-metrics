@@ -24,8 +24,10 @@ ibm:
     queueManager: QMAP01
     channel: MQ.MONITOR.SVRCONN
     connName: localhost(1501)
-    sslCipherSpec: TLS_RSA_WITH_AES_256_CBC_SHA256
-    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384
+    sslCipherSpec2:
+    sslCipherSpec: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    ibmCipherMapping: false
     useSSL: true
     user: MQmon01
     password: Passw0rd
@@ -33,6 +35,7 @@ ibm:
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
+    ccdtFile1: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\@ipcc\AMQCLCHL.TAB
     json:
       sort: true
       order: ascending
@@ -68,9 +71,9 @@ management:
     enabled: false
 info:
   app:
-    name: mq-metrics-1.0.0.14
+    name: mq-metrics-1.0.0.15
     description: IBM MQ Metrics
-    version: 1.0.0.14
+    version: 1.0.0.15
     java:
       version: 1.8.0.0
 server:

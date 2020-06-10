@@ -120,7 +120,7 @@ public class MQMetricsQueueManager {
 		return this.authCSP;
 	}
 	
-	@Value("${ibm.mq.sslCipherSpec}")
+	@Value("${ibm.mq.sslCipherSpec:#{null}}")
 	private String cipher;
 	
 	@Value("${ibm.mq.useSSL:false}")
@@ -301,7 +301,7 @@ public class MQMetricsQueueManager {
 				if (!StringUtils.isEmpty(getPassword())) {
 					env.put(MQConstants.PASSWORD_PROPERTY, getPassword());
 				}
-			}
+			} 
 			env.put(MQConstants.USE_MQCSP_AUTHENTICATION_PROPERTY, getMQCSP());
 			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 			env.put(MQConstants.APPNAME_PROPERTY,getAppName());
@@ -328,17 +328,18 @@ public class MQMetricsQueueManager {
 					System.setProperty("javax.net.ssl.trustStore", this.truststore);
 			        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
 			        System.setProperty("javax.net.ssl.trustStoreType","JKS");
-			        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
+			     //   System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
 				}
 				if (!StringUtils.isEmpty(this.keystore)) {
 			        System.setProperty("javax.net.ssl.keyStore", this.keystore);
 			        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
 			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
 				}
-				if (!StringUtils.isEmpty(this.cipher)) {
-					env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher);
+				if (this.cipher != null) {
+					if (!StringUtils.isEmpty(this.cipher)) {
+						env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher);						
+					}
 				}
-			
 			} else {
 				log.debug("SSL is NOT enabled ....");
 			}
@@ -375,7 +376,7 @@ public class MQMetricsQueueManager {
 			} else {
 				URL ccdtFileName = new URL("file:///" + getCCDTFile());
 				log.info("Attempting to connect to queue manager " + getQueueManagerName() + " using CCDT file");
-				qmgr = new MQQueueManager(this.queueManager, env, ccdtFileName);
+				qmgr = new MQQueueManager(getQueueManagerName(), env, ccdtFileName);
 				
 			}
 		}
@@ -432,12 +433,12 @@ public class MQMetricsQueueManager {
 		/*
 		 * If we dont have a user or a certs are not being used, then we cant connect ... unless we are in local bindings
 		 */
-		if (validateUserId()) {
-			if (!usingSSL()) {
-				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
-				System.exit(MQPCFConstants.EXIT_ERROR);
-			}
-		}
+		//if (validateUserId()) {
+		//	if (!usingSSL()) {
+		//		log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
+		//		System.exit(MQPCFConstants.EXIT_ERROR);
+		//	}
+		//}
 
 		// if no user, forget it ...
 		if (this.userId == null) {

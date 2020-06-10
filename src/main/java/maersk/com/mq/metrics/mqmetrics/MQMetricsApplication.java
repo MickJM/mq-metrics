@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan("maersk.com.mq.pcf.queuemanager")
 @ComponentScan("maersk.com.mq.pcf.listener")
 @ComponentScan("maersk.com.mq.pcf.queue")
-@ComponentScan("maersk.com.mq.metricsummary")
+//@ComponentScan("maersk.com.mq.metricsummary")
 @ComponentScan("maersk.com.mq.pcf.channel")
 @ComponentScan("maersk.com.mq.pcf.connections")
 @SpringBootApplication

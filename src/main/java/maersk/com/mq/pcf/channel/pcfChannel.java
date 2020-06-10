@@ -30,7 +30,7 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
-import maersk.com.mq.metricsummary.MQMetricSummary;
+//import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
 public class pcfChannel {
@@ -78,9 +78,9 @@ public class pcfChannel {
     	return this.messageAgent;
     }
 
-    @Autowired
-    private MQMetricSummary metricSummary;    
-    private int metricSummaryCount = 0;
+    //@Autowired
+    //private MQMetricSummary metricSummary;    
+    //private int metricSummaryCount = 0;
 
     @Autowired
     private MQMonitorBase base;
@@ -107,6 +107,7 @@ public class pcfChannel {
     /*
      * Load properties for metrics summary if needed
      */
+    /*
     public void loadProperties(boolean summaryRequired) {
     	log.debug("Channel loadProperties ....");    	    		
 		this.summaryRequired = summaryRequired;
@@ -120,6 +121,7 @@ public class pcfChannel {
 			}
     	}    	
     }
+    */
     
     /*
      * Get the channel metrics
@@ -442,7 +444,7 @@ public class pcfChannel {
 								msgRec.set(msgsOverChannels);
 							}
 						}
-						
+						/*
 						if (this.metricSummary != null) {
 							this.metricSummary.UpdateCounts(channelName
 									, channelType
@@ -451,6 +453,7 @@ public class pcfChannel {
 									, msgsOverChannels
 									, false);
 						}
+						*/
 						
 					} catch (Exception e) {
 						if (msgsOverChannels > 0) {
@@ -492,6 +495,7 @@ public class pcfChannel {
 							}
 						}
 						
+						/*
 						if (this.metricSummary != null) {
 							this.metricSummary.UpdateCounts(channelName
 									, channelType
@@ -500,6 +504,7 @@ public class pcfChannel {
 									, bytesReceviedOverChannels
 									, false);
 						}
+						*/
 						
 					} catch (Exception e) {
 						if (bytesReceviedOverChannels > 0) {
@@ -518,6 +523,7 @@ public class pcfChannel {
 							}
 						}
 						
+						/*
 						// If the metric summary is required, then updates the counts
 						if (this.summaryRequired) {
 							if (this.metricSummary != null) {
@@ -528,6 +534,8 @@ public class pcfChannel {
 										, MQPCFConstants.PCF_INIT_VALUE, false);
 							}
 						}
+						*/
+						
 					}
 
 					/*
@@ -627,6 +635,7 @@ public class pcfChannel {
 		/*
 		 * If the summary file is required, save the details
 		 */
+		/*
 		if (this.summaryRequired) {
 			this.metricSummaryCount++;
 			log.info("SummaryCount = " + this.metricSummaryCount);
@@ -637,6 +646,7 @@ public class pcfChannel {
 				this.metricSummary.DoWeNeedToRollOver();
 			}
 		}
+		*/
 		
 	}
 

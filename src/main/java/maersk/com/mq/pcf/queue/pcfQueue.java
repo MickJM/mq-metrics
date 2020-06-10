@@ -319,15 +319,39 @@ public class pcfQueue {
 
 					
 					// for dates / time - the queue manager or queue monitoring must be at least 'low'
-					// MQMON_OFF 	- Monitoring data collection is turned off
-					// MQMON_NONE	- Monitoring data collection is turned off for queues, regardless of their QueueMonitor attribute
-					// MQMON_LOW	- Monitoring data collection is turned on, with low ratio of data collection
-					// MQMON_MEDIUM	- Monitoring data collection is turned on, with moderate ratio of data collection
-					// MQMON_HIGH	- Monitoring data collection is turned on, with high ratio of data collection
+					// MQMON_Q_MGR     - -3
+					// MQMON_NONE	   - -1 Monitoring data collection is turned off for queues, regardless of their QueueMonitor attribute
+					// MQMON_NOT_AVAILABLE -1
+					// MQMON_OFF 	   -  0 Monitoring data collection is turned off
+					// MQMON_DISABLED  -  0
+					// MQMON_ENABLED   -  1
+					// MQMON_ON        -  1
+					// MQMON_LOW	   - 17 Monitoring data collection is turned on, with low ratio of data collection
+					// MQMON_MEDIUM	   - 33 Monitoring data collection is turned on, with moderate ratio of data collection
+					// MQMON_HIGH	   - 65 Monitoring data collection is turned on, with high ratio of data collection
+					boolean req = false;
+					// MQMON_Q_QMGR    - 65 This comes through against the queue and not -3 
+					if (qType != MQConstants.MQQT_ALIAS) {
+						int queueMon = pcfResStat[0].getIntParameterValue(MQConstants.MQIA_MONITORING_Q);
+						log.trace("pcfQueue: LASTPUT/LASTGET {} queueMon {} queueManager {}", queueName, queueMon, getQueueMonitoringFromQmgr());
+						if (queueMon == MQConstants.MQMON_Q_MGR) {					// This never gets executed, as queueMon, never gets set to -3
+																					// This is kept in, just in case
+
+							if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
+									|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
+								log.trace("pcfQueue: queuemanager monq {}", req);
+								req = true;
+							}
+						} else {
+							if (queueMon != MQConstants.MQMON_OFF) {
+								log.trace("pcfQueue: queuemon monq {}", req);
+								req = true;
+							}
+						}
+					}
 					log.trace("pcfQueue: inquire queue LAST GET DATE : " + queueName);
 					if (qType != MQConstants.MQQT_ALIAS) {
-						if (!((getQueueMonitoringFromQmgr() == MQConstants.MQMON_OFF) 
-								|| (getQueueMonitoringFromQmgr() == MQConstants.MQMON_NONE))) {
+						if (req) {
 							String lastGetDate = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_DATE);
 							String lastGetTime = pcfResStat[0].getStringParameterValue(MQConstants.MQCACF_LAST_GET_TIME);
 							if (!(lastGetDate.equals(" ") && lastGetTime.equals(" "))) {

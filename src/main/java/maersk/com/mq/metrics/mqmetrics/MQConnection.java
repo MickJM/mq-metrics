@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
+import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.MQExceptionWrapper;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
@@ -52,8 +53,8 @@ public class MQConnection {
 	@Value("${application.debugLevel:NONE}")
 	protected String _debugLevel;
     
-	@Value("${application.save.metrics.required:false}")
-    private boolean summaryRequired;
+	//@Value("${application.save.metrics.required:false}")
+    //private boolean summaryRequired;
 
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
@@ -155,7 +156,7 @@ public class MQConnection {
     	return this.mqMetricsQueueManager;
     }
     
-    public MQMetricSummary metricSummary;
+    //public MQMetricSummary metricSummary;
     
     @Bean
     public JSONController JSONController() {
@@ -170,7 +171,8 @@ public class MQConnection {
 	public void setProperties() throws MQException, MQDataException, MalformedURLException {
 		
 		log.info("MQConnection: Object created");
-		getChannelObject().loadProperties(this.summaryRequired);
+		log.info("OS: {}", System.getProperty("os.name").trim() );
+		//getChannelObject().loadProperties(this.summaryRequired);
 		
 		/*
 		 * Make a connection to the queue manager
@@ -217,6 +219,9 @@ public class MQConnection {
 			log.error("MQException: ReasonCode " + m.getReason());			
 			saveReasonCode(m.getReason());
 			if (log.isTraceEnabled()) { m.printStackTrace(); }
+			if (m.getReason() == MQConstants.MQRC_JSSE_ERROR) {
+				log.info("Cause: {}", m.getCause());
+			}
 			closeQMConnection(m.getReason());
 			getQueueManagerObject().connectionBroken(m.getReason());
 			queueManagerIsNotRunning(m.getReason());
