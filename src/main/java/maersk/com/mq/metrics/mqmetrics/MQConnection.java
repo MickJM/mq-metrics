@@ -37,7 +37,6 @@ import com.ibm.mq.headers.pcf.PCFException;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
-import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
 import maersk.com.mq.pcf.connections.pcfConnections;
 import maersk.com.mq.json.controller.JSONController;
@@ -53,9 +52,6 @@ public class MQConnection {
 	@Value("${application.debugLevel:NONE}")
 	protected String _debugLevel;
     
-	//@Value("${application.save.metrics.required:false}")
-    //private boolean summaryRequired;
-
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
 	public boolean isMultiInstance() {
@@ -171,13 +167,9 @@ public class MQConnection {
 	public void setProperties() throws MQException, MQDataException, MalformedURLException {
 		
 		log.info("MQConnection: Object created");
-		log.info("OS: {}", System.getProperty("os.name").trim() );
-		//getChannelObject().loadProperties(this.summaryRequired);
+		log.info("OS : {}", System.getProperty("os.name").trim() );
+		log.info("PID: {}", ProcessHandle.current().pid() );
 		
-		/*
-		 * Make a connection to the queue manager
-		 */
-		//connectToQueueManager();
 	}
 	
 	/*
@@ -250,8 +242,7 @@ public class MQConnection {
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 		}
     }
-    
-	
+    	
 	/*
 	 * Set the pcfAgent in each class
 	 */
@@ -276,6 +267,7 @@ public class MQConnection {
 	private void connectToQueueManager() throws MQException, MQDataException, MalformedURLException {
 		log.warn("No MQ queue manager object");
 
+		
 		createQueueManagerConnection();
 		setPCFParameters();
 		getQueueManagerObject().connectionBroken();
@@ -287,8 +279,10 @@ public class MQConnection {
 	 * 
 	 */
 	public void createQueueManagerConnection() throws MQException, MQDataException, MalformedURLException {
-		
-		setMQQueueManager(getMQMetricQueueManager().createQueueManager());
+
+		//setMQQueueManager(getMQMetricQueueManager().createQueueManager());
+
+		setMQQueueManager(getMQMetricQueueManager().multipleQueueManagers());
 		setMessageAgent(getMQMetricQueueManager().createMessageAgent(getMQQueueManager()));
 		
 	}

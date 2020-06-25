@@ -1,19 +1,9 @@
 package maersk.com.mq.metrics.mqmetrics;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.sql.Timestamp;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -26,29 +16,18 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQGetMessageOptions;
-import com.ibm.mq.MQMessage;
 import com.ibm.mq.MQQueue;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.MQCFGR;
-import com.ibm.mq.headers.pcf.MQCFH;
-import com.ibm.mq.headers.pcf.MQCFIL;
-import com.ibm.mq.headers.pcf.MQCFST;
-import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
-import com.ibm.mq.headers.pcf.PCFParameter;
-
-import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.accounting.AccountingEntity;
 
 @Component
 public class MQMetricsQueueManager {
@@ -79,11 +58,11 @@ public class MQMetricsQueueManager {
 	
 	// hostname(port)
 	@Value("${ibm.mq.connName}")
-	private String connName;
-	public void setConnName(String v) {
+	private String[] connName;
+	public void setConnName(String[] v) {
 		this.connName = v;
 	}
-	public String getConnName() { return this.connName; }
+	public String[] getConnName() { return this.connName; }
 	
 	@Value("${ibm.mq.channel}")
 	private String channel;
@@ -191,8 +170,8 @@ public class MQMetricsQueueManager {
     private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>versionMap = new HashMap<String,AtomicInteger>();
 
-    protected static final String runMode = "mq:runMode";
-    protected static final String version = "mq:monitoringVersion";
+    private String runMode = "mq:runMode";
+    private String version = "mq:monitoringVersion";
 	
 	/*
 	 * Validate connection name and userID
@@ -268,18 +247,49 @@ public class MQMetricsQueueManager {
 		setVersion();
 		
 	}
+	
+	public MQQueueManager multipleQueueManagers() throws MalformedURLException, MQException, MQDataException {
+	
+		int serverId = 0;
+		boolean notConnected = true;
+		MQQueueManager qm = null;
+
+		while (notConnected) {
+
+			String server = connName[serverId];
+			log.info("Attepting to connect to server {}", server);
+
+			try {
+				qm = createQueueManager(server);
+				notConnected = false;
+				
+			} catch (MQException e) {
+				log.warn("Unable to connect to server {}", server);
+			
+				if (serverId == 0) {
+					serverId = 1;
+					
+				} else {
+					throw new MQException(e.getCompCode(),e.getReason(),e.getCause());
+				}
+			}
+			
+		}
 		
+		return qm;
+		
+	}
 	/*
 	 * Create an MQQueueManager object
 	 */
 	@SuppressWarnings("rawtypes")
-	public MQQueueManager createQueueManager() throws MQException, MQDataException, MalformedURLException {
+	private MQQueueManager createQueueManager(String server) throws MQException, MQDataException, MalformedURLException {
 	
 		Hashtable<String, Comparable> env = new Hashtable<String, Comparable>();
 		
 		if (!isRunningLocal()) { 
 			
-			getEnvironmentVariables();
+			getEnvironmentVariables(server);
 			log.info("Attempting to connect using a client connection");
 
 			if ((getCCDTFile() == null) || (getCCDTFile().isEmpty())) {
@@ -305,7 +315,6 @@ public class MQMetricsQueueManager {
 			env.put(MQConstants.USE_MQCSP_AUTHENTICATION_PROPERTY, getMQCSP());
 			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 			env.put(MQConstants.APPNAME_PROPERTY,getAppName());
-			
 			if (isMultiInstance()) {
 				if (getOnceOnly()) {
 					log.info("MQ Metrics is running in multiInstance mode");
@@ -402,7 +411,7 @@ public class MQMetricsQueueManager {
 	/*
 	 * Get MQ details from environment variables
 	 */
-	private void getEnvironmentVariables() {
+	private void getEnvironmentVariables(String server) {
 		
 		/*
 		 * ALL parameter are passed in the application.yaml file ...
@@ -413,10 +422,10 @@ public class MQMetricsQueueManager {
 		// Split the host and port number from the connName ... host(port)
 		if (!validConnectionName()) {
 			Pattern pattern = Pattern.compile("^([^()]*)\\(([^()]*)\\)(.*)$");
-			Matcher matcher = pattern.matcher(this.connName);	
+			Matcher matcher = pattern.matcher(server);	
 			if (matcher.matches()) {
-				this.hostName = matcher.group(1).trim();
-				this.port = Integer.parseInt(matcher.group(2).trim());
+				setHostName(matcher.group(1).trim());
+				setPort(Integer.parseInt(matcher.group(2).trim()));
 			
 			} else {
 				log.error("While attempting to connect to a queue manager, the connName is invalid ");
@@ -433,12 +442,12 @@ public class MQMetricsQueueManager {
 		/*
 		 * If we dont have a user or a certs are not being used, then we cant connect ... unless we are in local bindings
 		 */
-		//if (validateUserId()) {
-		//	if (!usingSSL()) {
-		//		log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
-		//		System.exit(MQPCFConstants.EXIT_ERROR);
-		//	}
-		//}
+		if (validateUserId()) {
+			if (!usingSSL()) {
+				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
+				System.exit(MQPCFConstants.EXIT_ERROR);
+			}
+		}
 
 		// if no user, forget it ...
 		if (this.userId == null) {

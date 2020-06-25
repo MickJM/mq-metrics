@@ -32,14 +32,13 @@ import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.MQCFGR;
 import com.ibm.mq.headers.pcf.MQCFH;
+import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
 
 import io.micrometer.core.instrument.Tags;
-import maersk.com.mq.metrics.accounting.AccountingEntity;
 import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
-import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @Component
 public class pcfQueue {
@@ -76,18 +75,17 @@ public class pcfQueue {
     
     private Map<String,AtomicLong>msgPutPMsgCountMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgGetPMsgCountMap = new HashMap<String,AtomicLong>();
-    
-    
-	protected static final String lookupQueDepth = "mq:queueDepth";
-	protected static final String lookupOpenIn = "mq:openInputCount";
-	protected static final String lookupOpenOut = "mq:openOutputCount";
-	protected static final String lookupMaxDepth = "mq:maxQueueDepth";
-	protected static final String lookupLastGetDateTime = "mq:lastGetDateTime";
-	protected static final String lookupLastPutDateTime = "mq:lastPutDateTime";
-	protected static final String lookupOldMsgAge = "mq:oldestMsgAge";
-	protected static final String lookupdeQueued = "mq:deQueued";
-	protected static final String lookupenQueued = "mq:enQueued";
-	protected static final String lookupQueueProcesses = "mq:queueProcesses";
+        
+    private String lookupQueDepth = "mq:queueDepth";
+    private String lookupOpenIn = "mq:openInputCount";
+    private String lookupOpenOut = "mq:openOutputCount";
+    private String lookupMaxDepth = "mq:maxQueueDepth";
+    private String lookupLastGetDateTime = "mq:lastGetDateTime";
+    private String lookupLastPutDateTime = "mq:lastPutDateTime";
+    private String lookupOldMsgAge = "mq:oldestMsgAge";
+    private String lookupdeQueued = "mq:deQueued";
+    private String lookupenQueued = "mq:enQueued";
+    private String lookupQueueProcesses = "mq:queueProcesses";
 		
     private PCFMessageAgent messageAgent;
 	public void setMessageAgent(PCFMessageAgent agent) {
@@ -317,6 +315,8 @@ public class pcfQueue {
 						}
 					}
 
+					checkQueueInhibit(queueName, qType, value, pcfMsg );
+					
 					
 					// for dates / time - the queue manager or queue monitoring must be at least 'low'
 					// MQMON_Q_MGR     - -3
@@ -495,6 +495,54 @@ public class pcfQueue {
 		}
 	}
 
+	/*
+	 * Inhibit PUTs on queues
+	 */
+	private void checkQueueInhibit(String queueName, int qType, int maxQueueDepth, PCFMessage pcfMsg) {
+
+		int queueDepth;
+		
+		try {
+			queueDepth = pcfMsg.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
+			double perageFull = ((double)queueDepth / (double)maxQueueDepth) * 100;
+
+			int putInhinit = pcfMsg.getIntParameterValue(MQConstants.MQIA_INHIBIT_PUT);
+
+			if (putInhinit == MQConstants.MQQA_PUT_ALLOWED) {
+				if (perageFull >= 80) {
+					log.warn("QUEUE DEPTH HIGH: Queue- {} MaxDepth- {} CURDEPTH- {}",queueName, maxQueueDepth, queueDepth);
+					log.warn("Queue {} is PUT ALLOWED, setting to PUT INHIBITED",queueName);
+
+					PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_CHANGE_Q);
+					pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+					pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, qType);		
+					pcfRequest.addParameter(MQConstants.MQIA_INHIBIT_PUT, MQConstants.MQQA_PUT_INHIBITED);		
+
+					/*
+					 * Update the queue
+					 */
+					PCFMessage[] pcfResponse = null;
+					pcfResponse = getMessageAgent().send(pcfRequest);
+					log.debug("pcfQueue (putinhibit): queue {} PUT INHIBIT enabled", queueName);
+
+				}
+			}
+		
+		} catch (PCFException e) {
+			log.warn("pcfQueue (putinhibit): no response returned - " + e.getMessage());
+			
+		} catch (MQDataException e) {
+			log.warn("pcfQueue (putinhibit): no response returned - " + e.getMessage());
+
+		} catch (IOException e) {
+			log.warn("pcfQueue (putinhibit): no response returned - " + e.getMessage());
+
+		}
+		
+		
+		
+	}
+	
 	
 	/*
 	 * Get the handles from each queue
@@ -740,6 +788,5 @@ public class pcfQueue {
 	    this.procMap.clear();
 		
 	}
-	
 	
 }

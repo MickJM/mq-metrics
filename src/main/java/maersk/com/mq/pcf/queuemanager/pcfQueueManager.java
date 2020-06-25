@@ -63,10 +63,10 @@ public class pcfQueueManager {
     @Autowired
     private MQMetricsQueueManager metqm;
     
-	protected static final String cmdLookupStatus = "mq:commandServerStatus";
-	protected static final String lookupStatus = "mq:queueManagerStatus";
-	protected static final String lookupReset = "mq:resetIterations";
-	protected static final String lookupMultiInstance = "mq:multiInstance";
+    private String cmdLookupStatus = "mq:commandServerStatus";
+    private String lookupStatus = "mq:queueManagerStatus";
+    private String lookupReset = "mq:resetIterations";
+    private String lookupMultiInstance = "mq:multiInstance";
 	
     private Map<String,AtomicInteger>qmMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicInteger>cmdMap = new HashMap<String,AtomicInteger>();
@@ -149,7 +149,7 @@ public class pcfQueueManager {
 
 		AtomicInteger value = iterMap.get(lookupReset + "_" + queueMan);
 		if (value == null) {
-			iterMap.put(lookupReset + "_" + getQueueManagerName(), base.meterRegistry.gauge(lookupReset, 
+			iterMap.put(lookupReset + "_" + queueMan, base.meterRegistry.gauge(lookupReset, 
 					Tags.of("queueManagerName", queueMan),
 					new AtomicInteger(this.resetIterations))
 					);

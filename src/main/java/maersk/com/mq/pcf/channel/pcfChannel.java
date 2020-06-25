@@ -37,17 +37,16 @@ public class pcfChannel {
 
     private final static Logger log = LoggerFactory.getLogger(pcfChannel.class);
 
-	private static final int SAVEMETRICS = 0;
-	protected static final String lookupChannel = "mq:channelStatus";
-	protected static final String lookupChannelConns = "mq:channelConnections";
-	protected static final String lookupMsgRec = "mq:messagesReceived";
-	protected static final String lookupBytesRec = "mq:bytesReceived";
-	protected static final String lookupBytesSent = "mq:bytesSent";
-	protected static final String lookupMaxMsgSize = "mq:channelMaxMsgSize";
-	protected static final String lookupInDoubt = "mq:channelsInDoubt";
-	protected static final String lookupDisc = "mq:channelDisconnectInt";
-	protected static final String lookupHB = "mq:channelHeartBeatInt";
-	protected static final String lookupKeepAlive = "mq:channelKeepAliveInt";
+	private String lookupChannel = "mq:channelStatus";
+	private String lookupChannelConns = "mq:channelConnections";
+	private String lookupMsgRec = "mq:messagesReceived";
+	private String lookupBytesRec = "mq:bytesReceived";
+	private String lookupBytesSent = "mq:bytesSent";
+	private String lookupMaxMsgSize = "mq:channelMaxMsgSize";
+	private String lookupInDoubt = "mq:channelsInDoubt";
+	private String lookupDisc = "mq:channelDisconnectInt";
+	private String lookupHB = "mq:channelHeartBeatInt";
+	private String lookupKeepAlive = "mq:channelKeepAliveInt";
 	
     private Map<String,AtomicInteger>channelMap = new HashMap<String,AtomicInteger>();
     private Map<String,AtomicLong>msgRecMap = new HashMap<String,AtomicLong>();
@@ -59,10 +58,6 @@ public class pcfChannel {
     private Map<String,AtomicLong>channelCountsMap = new HashMap<String,AtomicLong>();
 
 	private String queueManager;
-
-	@Value("${application.save.summary.stats:3}")
-    private int saveSummaryStats;
-    private boolean summaryRequired;
 
 	@Value("${ibm.mq.objects.channels.exclude}")
     private String[] excludeChannels;
@@ -77,10 +72,6 @@ public class pcfChannel {
     private PCFMessageAgent getMessageAgent() {
     	return this.messageAgent;
     }
-
-    //@Autowired
-    //private MQMetricSummary metricSummary;    
-    //private int metricSummaryCount = 0;
 
     @Autowired
     private MQMonitorBase base;
@@ -103,26 +94,7 @@ public class pcfChannel {
     		log.debug(s);
     	}
     }
-    
-    /*
-     * Load properties for metrics summary if needed
-     */
-    /*
-    public void loadProperties(boolean summaryRequired) {
-    	log.debug("Channel loadProperties ....");    	    		
-		this.summaryRequired = summaryRequired;
-		
-    	if (this.summaryRequired) {			
-			if (this.metricSummary != null) {
-		    	this.metricSummary.LoadMetrics();	
-		    	
-			} else {
-				log.trace("metricsSummary object has not been created ");				
-			}
-    	}    	
-    }
-    */
-    
+        
     /*
      * Get the channel metrics
      */
@@ -444,16 +416,6 @@ public class pcfChannel {
 								msgRec.set(msgsOverChannels);
 							}
 						}
-						/*
-						if (this.metricSummary != null) {
-							this.metricSummary.UpdateCounts(channelName
-									, channelType
-									, this.queueManager
-									, channelCluster
-									, msgsOverChannels
-									, false);
-						}
-						*/
 						
 					} catch (Exception e) {
 						if (msgsOverChannels > 0) {
@@ -494,18 +456,7 @@ public class pcfChannel {
 								msgBytesRec.set(bytesReceviedOverChannels);
 							}
 						}
-						
-						/*
-						if (this.metricSummary != null) {
-							this.metricSummary.UpdateCounts(channelName
-									, channelType
-									, this.queueManager
-									, channelCluster
-									, bytesReceviedOverChannels
-									, false);
-						}
-						*/
-						
+												
 					} catch (Exception e) {
 						if (bytesReceviedOverChannels > 0) {
 							AtomicLong msgBytesRec = msgBytesRecMap.get(lookupBytesRec + "_" + channelName);
@@ -521,21 +472,7 @@ public class pcfChannel {
 							} else {
 								msgBytesRec.set(bytesReceviedOverChannels);
 							}
-						}
-						
-						/*
-						// If the metric summary is required, then updates the counts
-						if (this.summaryRequired) {
-							if (this.metricSummary != null) {
-								this.metricSummary.UpdateCounts(channelName
-										, channelType
-										, this.queueManager
-										, channelCluster
-										, MQPCFConstants.PCF_INIT_VALUE, false);
-							}
-						}
-						*/
-						
+						}						
 					}
 
 					/*
@@ -545,10 +482,6 @@ public class pcfChannel {
 						// Count the messages over the number of threads on each channel
 						for (PCFMessage pcfM : pcfResp) {
 							int bytes = pcfM.getIntParameterValue(MQConstants.MQIACH_BYTES_SENT);
-							//if (bytes < 0) {
-							//	bytes = bytes * -1;
-							//}
-							//bytesSentOverChannels += bytes;
 							bytesSentOverChannels += bytes;
 						}
 						if (bytesSentOverChannels > 0) {
@@ -631,23 +564,7 @@ public class pcfChannel {
 			log.trace("pcfChannel: unable to get channel metrics " + e.getMessage());
 		
 		}
-		
-		/*
-		 * If the summary file is required, save the details
-		 */
-		/*
-		if (this.summaryRequired) {
-			this.metricSummaryCount++;
-			log.info("SummaryCount = " + this.metricSummaryCount);
-			
-			if ((this.metricSummaryCount % this.saveSummaryStats) == SAVEMETRICS) {
-				this.metricSummaryCount = MQPCFConstants.BASE;
-				this.metricSummary.SaveMetrics();
-				this.metricSummary.DoWeNeedToRollOver();
-			}
-		}
-		*/
-		
+				
 	}
 
 	private void channelConnections(Map<String,Integer>conns, String ip, String channelName, String channelType, 

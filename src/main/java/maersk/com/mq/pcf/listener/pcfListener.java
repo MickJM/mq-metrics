@@ -52,7 +52,7 @@ public class pcfListener {
     //Listener status maps
     private Map<String,AtomicInteger>listenerStatusMap = new HashMap<String, AtomicInteger>();
     
-	protected static final String lookupListener = "mq:listenerStatus";
+    private String lookupListener = "mq:listenerStatus";
     private Map<String,AtomicInteger>listenerMap = new HashMap<String,AtomicInteger>();
 
     // Listeners ...

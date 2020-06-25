@@ -30,7 +30,7 @@ public class pcfConnections {
 	private final static Logger log = LoggerFactory.getLogger(pcfConnections.class);
     
 	private Map<String,AtomicInteger>connMap = new HashMap<String,AtomicInteger>();
-	protected static final String lookupConns = "mq:connections";
+	private String lookupConns = "mq:connections";
 	
 	private String queueManagerName;
 	public void setQueueManagerName() {
