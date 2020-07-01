@@ -266,7 +266,6 @@ public class MQConnection {
 	 */
 	private void connectToQueueManager() throws MQException, MQDataException, MalformedURLException {
 		log.warn("No MQ queue manager object");
-
 		
 		createQueueManagerConnection();
 		setPCFParameters();

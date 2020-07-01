@@ -18,12 +18,14 @@ ibm:
   mq:
     multiInstance: false
     queueManager: QMAP01
+    channel1: 
+    connName1:     
     channel: MQ.MONITOR.SVRCONN
-    connName: localhost(1501), localhost(1442)
+    connName: localhost(1501)
     sslCipherSpec2:
     sslCipherSpec: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
     sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-    ibmCipherMapping: false
+    ibmCipherMapping1: false
     useSSL: true
     user: MQmon01
     password: Passw0rd
@@ -32,23 +34,17 @@ ibm:
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
     ccdtFile1: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\@ipcc\AMQCLCHL.TAB
-    alerts:
+    alerts1:
       highqueuedepth:
          action: MQIA_INHIBIT_PUT
-         queues:
-            queue:
-              queueName: FRED
-# percentage and value are mutually exclusive
-              percentage: 60
-            queue:
-              queueName: "*"
-              percentage: 80              
+         value: percentage    
+         queue: FRED:60, *:80
     json:
       sort: true
       order: ascending
     objects:
       queues:
-        include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, "*"
+        include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, *
         exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
       channels:
         include: "*"

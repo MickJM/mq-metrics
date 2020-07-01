@@ -87,6 +87,15 @@ public class pcfQueue {
     private String lookupenQueued = "mq:enQueued";
     private String lookupQueueProcesses = "mq:queueProcesses";
 		
+    @Value("${ibm.mq.alerts.highqueuedepth.queue:#{null}}")
+    private String[] inhibQueues;
+    
+    @Value("${ibm.mq.alerts.highqueuedepth.value:percentage}")
+    private String highDepthValueOrPercentage;
+    
+    private Map<String, String> inhibMap = new HashMap<String,String>();
+    private Map<String, String> whatTheAPISet = new HashMap<String,String>();
+    
     private PCFMessageAgent messageAgent;
 	public void setMessageAgent(PCFMessageAgent agent) {
     	this.messageAgent = agent;
@@ -94,6 +103,22 @@ public class pcfQueue {
     }
 	private PCFMessageAgent getMessageAgent() {
 		return this.messageAgent;
+	}
+	
+	@Value("${info.app.version:}")
+	private String appversion;	
+	public String getVersionNumeric() {
+		return this.appversion;
+	}
+	public boolean compareVersion(String versionToCompare) {
+		int versionA = Integer.parseInt(getVersionNumeric().replaceAll("\\.", ""));
+		int versionB = Integer.parseInt(versionToCompare.replaceAll("\\.", ""));
+		if (versionB > versionA) {
+			return true;
+		} else {
+			return false;
+		}
+		
 	}
 	
 	@Autowired
@@ -121,6 +146,24 @@ public class pcfQueue {
     	log.debug("Excluding queues ;");
     	for (String s : this.excludeQueues) {
     		log.debug(s);
+    	}
+    	
+    	/*
+    	 * Load the putInhibit queue table
+    	 */
+
+    	if (this.inhibQueues != null) {
+			for (String s : this.inhibQueues) {
+				long count = s.chars().filter(ch -> ch == ':').count();
+				if (count == 1) {
+					String[] values = s.split(":");			
+					this.inhibMap.put(values[0], values[1]);
+				
+				} else {
+					log.warn("Invalid PUT inhibit values for {}, each value must be in the format of 'queueName:value'", s);
+					
+				}
+			}
     	}
     }
 
@@ -315,8 +358,14 @@ public class pcfQueue {
 						}
 					}
 
-					checkQueueInhibit(queueName, qType, value, pcfMsg );
-					
+					/*
+					 * Only interested in local queue, should really get the base queue from the alias queue
+					 */
+					if (compareVersion("1.0.0.17")) {
+						if (qType == MQConstants.MQQT_LOCAL) {
+							checkQueueInhibit(queueName, qType, value, pcfMsg );
+						}
+					}
 					
 					// for dates / time - the queue manager or queue monitoring must be at least 'low'
 					// MQMON_Q_MGR     - -3
@@ -500,34 +549,82 @@ public class pcfQueue {
 	 */
 	private void checkQueueInhibit(String queueName, int qType, int maxQueueDepth, PCFMessage pcfMsg) {
 
+		if (this.inhibMap.size() == 0) {
+			return;
+		}
+		
 		int queueDepth;
 		
 		try {
 			queueDepth = pcfMsg.getIntParameterValue(MQConstants.MQIA_CURRENT_Q_DEPTH);
-			double perageFull = ((double)queueDepth / (double)maxQueueDepth) * 100;
-
+			double perageFull = 0;
+			
+			if (this.highDepthValueOrPercentage.toUpperCase().equals("PERCENTAGE")) {
+				perageFull = ((double)queueDepth / (double)maxQueueDepth) * 100; 		// calculate %age value 
+			
+			} else {
+				perageFull = (double)queueDepth; 										// or use the actual value specified
+			}
+			
 			int putInhinit = pcfMsg.getIntParameterValue(MQConstants.MQIA_INHIBIT_PUT);
+			String watermark = this.inhibMap.get(queueName);
+			if (watermark == null) {
+				watermark = this.inhibMap.get("*");				
+			}
+			if (watermark != null) {
+				int waterm = Integer.parseInt(watermark);
+				if (putInhinit == MQConstants.MQQA_PUT_ALLOWED) {
 
-			if (putInhinit == MQConstants.MQQA_PUT_ALLOWED) {
-				if (perageFull >= 80) {
-					log.warn("QUEUE DEPTH HIGH: Queue- {} MaxDepth- {} CURDEPTH- {}",queueName, maxQueueDepth, queueDepth);
-					log.warn("Queue {} is PUT ALLOWED, setting to PUT INHIBITED",queueName);
+					if (perageFull >= waterm) {
+						if (this.highDepthValueOrPercentage.toUpperCase().equals("PERCENTAGE")) {
+							log.warn("High queue depth alter is based on percentages");
+						} else {
+							log.warn("High queue depth alter is based on values");							
+						}
+						
+						log.warn("QUEUE DEPTH HIGH: Queue- {} MaxDepth- {} CURDEPTH- {} WATERMARK is {}",queueName, maxQueueDepth, queueDepth, waterm);
+						log.warn("Queue {} is PUT ALLOWED, setting to PUT INHIBITED, threashold is {}",queueName, perageFull);
+	
+						PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_CHANGE_Q);
+						pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+						pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, qType);		
+						pcfRequest.addParameter(MQConstants.MQIA_INHIBIT_PUT, MQConstants.MQQA_PUT_INHIBITED);		
+						PCFMessage[] pcfResponse = null;
+						pcfResponse = getMessageAgent().send(pcfRequest);
+						log.debug("pcfQueue (putinhibit): queue {} PUT INHIBIT enabled", queueName);
+						this.whatTheAPISet.put(queueName, "set");
+						
+					}
+				}  else {
+					if (putInhinit == MQConstants.MQQA_PUT_INHIBITED) {
 
-					PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_CHANGE_Q);
-					pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, queueName);
-					pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, qType);		
-					pcfRequest.addParameter(MQConstants.MQIA_INHIBIT_PUT, MQConstants.MQQA_PUT_INHIBITED);		
-
-					/*
-					 * Update the queue
-					 */
-					PCFMessage[] pcfResponse = null;
-					pcfResponse = getMessageAgent().send(pcfRequest);
-					log.debug("pcfQueue (putinhibit): queue {} PUT INHIBIT enabled", queueName);
-
+						if (this.whatTheAPISet.get(queueName) == "set") {
+							if (perageFull < waterm) {
+							
+								if (queueDepth > 0) {
+									log.warn("QUEUE DEPTH HIGH: Queue- {} MaxDepth- {} CURDEPTH- {}",queueName, maxQueueDepth, queueDepth);
+									log.warn("Queue {} is PUT INHIBITED, setting to PUT ALLOWED",queueName);
+		
+									PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_CHANGE_Q);
+									pcfRequest.addParameter(MQConstants.MQCA_Q_NAME, queueName);
+									pcfRequest.addParameter(MQConstants.MQIA_Q_TYPE, qType);		
+									pcfRequest.addParameter(MQConstants.MQIA_INHIBIT_PUT, MQConstants.MQQA_PUT_ALLOWED);				
+									PCFMessage[] pcfResponse = null;
+									pcfResponse = getMessageAgent().send(pcfRequest);
+									log.debug("pcfQueue (putinhibit): queue {} PUT ALLOWED enabled", queueName);
+								}
+							}
+							this.whatTheAPISet.remove(queueName);
+							
+						} else {
+							log.info("Queue {} is set as PUT INHIBITED, saving in API",queueName);							
+							this.whatTheAPISet.put(queueName, "set");
+						}
+					}
+					
 				}
 			}
-		
+			
 		} catch (PCFException e) {
 			log.warn("pcfQueue (putinhibit): no response returned - " + e.getMessage());
 			

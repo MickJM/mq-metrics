@@ -101,6 +101,9 @@ public class MQMetricsQueueManager {
 	
 	@Value("${ibm.mq.sslCipherSpec:#{null}}")
 	private String cipher;
+	private String getCipherSpec() {
+		return this.cipher;
+	}
 	
 	@Value("${ibm.mq.useSSL:false}")
 	private boolean bUseSSL;
@@ -248,20 +251,31 @@ public class MQMetricsQueueManager {
 		
 	}
 	
+	/*
+	 * Select the correct queue manager
+	 */
 	public MQQueueManager multipleQueueManagers() throws MalformedURLException, MQException, MQDataException {
 	
 		int serverId = 0;
-		boolean notConnected = true;
+		boolean connected = false;
 		MQQueueManager qm = null;
+		String server = null;
+		
+		while (!connected) {
 
-		while (notConnected) {
-
-			String server = connName[serverId];
-			log.info("Attepting to connect to server {}", server);
+			/*
+			 * If not running locally, select the server "host and port" from the list
+			 * ... if not, the server will be null
+			 */
+			if (!isRunningLocal()) {
+				server = connName[serverId];
+				log.info("Attepting to connect to server {}", server);
+			}
 
 			try {
 				qm = createQueueManager(server);
-				notConnected = false;
+				setQmgr(qm);
+				connected = true;
 				
 			} catch (MQException e) {
 				log.warn("Unable to connect to server {}", server);
@@ -279,6 +293,7 @@ public class MQMetricsQueueManager {
 		return qm;
 		
 	}
+	
 	/*
 	 * Create an MQQueueManager object
 	 */
@@ -287,6 +302,9 @@ public class MQMetricsQueueManager {
 	
 		Hashtable<String, Comparable> env = new Hashtable<String, Comparable>();
 		
+		/*
+		 * If not running locally, then 'server' will contain the host/port
+		 */
 		if (!isRunningLocal()) { 
 			
 			getEnvironmentVariables(server);
@@ -344,9 +362,9 @@ public class MQMetricsQueueManager {
 			        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
 			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
 				}
-				if (this.cipher != null) {
-					if (!StringUtils.isEmpty(this.cipher)) {
-						env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher);						
+				if (getCipherSpec() != null) {
+					if (!StringUtils.isEmpty(getCipherSpec())) {
+						env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, getCipherSpec());						
 					}
 				}
 			} else {
@@ -378,11 +396,17 @@ public class MQMetricsQueueManager {
 			qmgr = new MQQueueManager(getQueueManagerName());
 			
 		} else {
+			/*
+			 * If not using a CCDT file
+			 */
 			if ((getCCDTFile() == null) || (getCCDTFile().isEmpty())) {
 				log.info("Attempting to connect to queue manager " + getQueueManagerName());
 				qmgr = new MQQueueManager(getQueueManagerName(), env);
 				
 			} else {
+				/*
+				 * Load the CCDT file and pass it into the MQ API
+				 */
 				URL ccdtFileName = new URL("file:///" + getCCDTFile());
 				log.info("Attempting to connect to queue manager " + getQueueManagerName() + " using CCDT file");
 				qmgr = new MQQueueManager(getQueueManagerName(), env, ccdtFileName);
@@ -390,7 +414,6 @@ public class MQMetricsQueueManager {
 			}
 		}
 		log.info("Connection to queue manager established ");
-		setQmgr(qmgr);
 		
 		return qmgr;
 	}

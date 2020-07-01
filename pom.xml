@@ -5,7 +5,7 @@
 
 	<groupId>maersk.com.mq.metrics</groupId>
 	<artifactId>mq-metrics</artifactId>
-	<version>1.0.0.16</version>
+	<version>1.0.0.17</version>
 	<packaging>jar</packaging>
 	
 	<name>MQ Metrics</name>
