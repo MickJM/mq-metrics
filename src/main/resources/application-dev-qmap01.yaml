@@ -18,14 +18,14 @@ ibm:
   mq:
     multiInstance: false
     queueManager: QMAP01
-    channel1: 
-    connName1:     
     channel: MQ.MONITOR.SVRCONN
+    channel1: NOCRED_WITHCHLAUTH
     connName: localhost(1501)
     sslCipherSpec2:
-    sslCipherSpec: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-    ibmCipherMapping1: false
+    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+    sslCipherSpec3: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+    sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
+    ibmCipherMapping: false
     useSSL: true
     user: MQmon01
     password: Passw0rd
@@ -58,9 +58,9 @@ ibm:
     event:
       delayInMilliSeconds: 10000      
     security:
-      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
       truststore-password: Passw0rd
-      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01jks.jks
+      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
       keystore-password: Passw0rd
 management:
   endpoints:

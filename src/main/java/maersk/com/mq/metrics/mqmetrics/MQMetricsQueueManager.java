@@ -101,8 +101,14 @@ public class MQMetricsQueueManager {
 	
 	@Value("${ibm.mq.sslCipherSpec:#{null}}")
 	private String cipher;
-	private String getCipherSpec() {
+	private String CipherSpec() {
 		return this.cipher;
+	}
+
+	@Value("${ibm.mq.ibmCipherMappings:false}")
+	private String ibmCipherMappings;
+	private String IBMCipherMappings() {
+		return this.ibmCipherMappings;
 	}
 	
 	@Value("${ibm.mq.useSSL:false}")
@@ -113,12 +119,26 @@ public class MQMetricsQueueManager {
 	
 	@Value("${ibm.mq.security.truststore:}")
 	private String truststore;
+	public String TrustStore() {
+		return this.truststore;
+	}
 	@Value("${ibm.mq.security.truststore-password:}")
 	private String truststorepass;
+	public String TrustStorePass() {
+		return this.truststorepass;
+	}
+
 	@Value("${ibm.mq.security.keystore:}")
 	private String keystore;
+	public String KeyStore() {
+		return this.keystore;
+	}
+
 	@Value("${ibm.mq.security.keystore-password:}")
 	private String keystorepass;
+	public String KeyStorePass() {
+		return this.keystorepass;
+	}
 	
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
@@ -269,7 +289,7 @@ public class MQMetricsQueueManager {
 			 */
 			if (!isRunningLocal()) {
 				server = connName[serverId];
-				log.info("Attepting to connect to server {}", server);
+				log.info("Attepting to connect to server {} {}", server, connName.length);
 			}
 
 			try {
@@ -280,11 +300,12 @@ public class MQMetricsQueueManager {
 			} catch (MQException e) {
 				log.warn("Unable to connect to server {}", server);
 			
-				if (serverId == 0) {
-					serverId = 1;
-					
+				if (serverId < (connName.length - 1)) {
+					if (serverId == 0) {
+						serverId = 1;
+					}
 				} else {
-					throw new MQException(e.getCompCode(),e.getReason(),e.getCause());
+					throw e;
 				}
 			}
 			
@@ -329,8 +350,8 @@ public class MQMetricsQueueManager {
 				if (!StringUtils.isEmpty(getPassword())) {
 					env.put(MQConstants.PASSWORD_PROPERTY, getPassword());
 				}
+				env.put(MQConstants.USE_MQCSP_AUTHENTICATION_PROPERTY, getMQCSP());
 			} 
-			env.put(MQConstants.USE_MQCSP_AUTHENTICATION_PROPERTY, getMQCSP());
 			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
 			env.put(MQConstants.APPNAME_PROPERTY,getAppName());
 			if (isMultiInstance()) {
@@ -352,19 +373,19 @@ public class MQMetricsQueueManager {
 			// If SSL is enabled (default)
 			if (usingSSL()) {
 				if (!StringUtils.isEmpty(this.truststore)) {
-					System.setProperty("javax.net.ssl.trustStore", this.truststore);
-			        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
+					System.setProperty("javax.net.ssl.trustStore", TrustStore());
+			        System.setProperty("javax.net.ssl.trustStorePassword", TrustStorePass());
 			        System.setProperty("javax.net.ssl.trustStoreType","JKS");
-			     //   System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
+			        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings",IBMCipherMappings());
 				}
 				if (!StringUtils.isEmpty(this.keystore)) {
-			        System.setProperty("javax.net.ssl.keyStore", this.keystore);
-			        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
+			        System.setProperty("javax.net.ssl.keyStore", KeyStore());
+			        System.setProperty("javax.net.ssl.keyStorePassword", KeyStorePass());
 			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
 				}
-				if (getCipherSpec() != null) {
-					if (!StringUtils.isEmpty(getCipherSpec())) {
-						env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, getCipherSpec());						
+				if (CipherSpec() != null) {
+					if (!StringUtils.isEmpty(CipherSpec())) {
+						env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, CipherSpec());						
 					}
 				}
 			} else {

@@ -279,8 +279,6 @@ public class MQConnection {
 	 */
 	public void createQueueManagerConnection() throws MQException, MQDataException, MalformedURLException {
 
-		//setMQQueueManager(getMQMetricQueueManager().createQueueManager());
-
 		setMQQueueManager(getMQMetricQueueManager().multipleQueueManagers());
 		setMessageAgent(getMQMetricQueueManager().createMessageAgent(getMQQueueManager()));
 		

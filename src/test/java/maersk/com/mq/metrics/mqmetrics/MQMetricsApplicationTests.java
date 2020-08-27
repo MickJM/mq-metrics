@@ -38,9 +38,6 @@ import io.micrometer.core.instrument.MeterRegistry;
 import maersk.com.mq.json.entities.Metric;
 import maersk.com.mq.pcf.listener.pcfListener;
 
-//@ActiveProfiles("test")
-//@SpringBootApplication
-
 @RunWith(SpringRunner.class)
 @SpringBootTest(classes = { MQMetricsApplication.class })
 @Component
@@ -49,12 +46,6 @@ public class MQMetricsApplicationTests {
 
 	private final static Logger log = LoggerFactory.getLogger(MQMetricsApplicationTests.class);
 		
-	//@Autowired
-	//private MQMetricsQueueManager qman;
-	//public MQMetricsQueueManager getQueMan() {
-	//	return this.qman;
-	//}
-	
 	@Autowired
 	private MQConnection conn;
 	
@@ -75,15 +66,18 @@ public class MQMetricsApplicationTests {
 		log.info("Attempting to connect to {}", getQueueManagerName());		
 		Thread.sleep(2000);
 
+		assert (conn != null) : "MQ connection object has not been created";
+
 		MQQueueManager qm = conn.getMQQueueManager();
-		assert (conn) != null;
-		
-		assert (conn.getReasonCode() != MQConstants.MQRC_NOT_AUTHORIZED) : "Not authorised to access the queue manager";
+		log.info("Return code: " + conn.getReasonCode());
+
+		assert (conn.getReasonCode() != MQConstants.MQRC_NOT_AUTHORIZED) : "Not authorised to access the queue manager, ensure that the username/password are correct";
 		assert (conn.getReasonCode() != MQConstants.MQRC_ENVIRONMENT_ERROR) : "An environment error has been detected, the most likely cause is trying to connect using a password greater than 12 characters";
 		assert (conn.getReasonCode() != MQConstants.MQRC_HOST_NOT_AVAILABLE) : "MQ host is not available";
-		assert (conn.getReasonCode() != MQConstants.MQRC_UNSUPPORTED_CIPHER_SUITE) : "TLS unsupported cipher";
+		assert (conn.getReasonCode() != MQConstants.MQRC_UNSUPPORTED_CIPHER_SUITE) : "TLS unsupported cipher - set ibmCipherMappings to false if using IBM Oracle JRE";
 		assert (conn.getReasonCode() != MQConstants.MQRC_JSSE_ERROR) : "JSSE error - most likely cause being that certificates are wrong or have expired";
 		assert (conn.getReasonCode() == 0) : "MQ error occurred" ;
+		assert (qm != null) : "Queue manager connection was not successful" ;
 		
 	}
 
@@ -107,7 +101,7 @@ public class MQMetricsApplicationTests {
 		Collections.sort(filter, byType);
 		
 		Iterator<Id> list = filter.iterator();
-		assert(list) != null : "no metrics were returned";
+		assert(list != null) : "No metrics were returned";
 		
 		int mqMetrics = 0;
 		while (list.hasNext()) {
@@ -115,18 +109,6 @@ public class MQMetricsApplicationTests {
 			if (id.getName().startsWith("mq:")) {
 				mqMetrics++;
 			}
-			/*
-			 * 			
-			Metric m = new Metric();
-			m.setName(id.getName());
-
-			List<Tag> tags = id.getTags();
-			
-			if (id.getType() == Meter.Type.GAUGE) {
-				Gauge g = this.meterRegistry.find(id.getName()).tags(tags).gauge();
-				assert(g) != null;
-			}
-			*/
 		}
 		assert (mqMetrics > 0) : "No mq: metrics generated";
 		
