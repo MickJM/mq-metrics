@@ -119,6 +119,12 @@ public class MQConnection {
     
 	@Autowired
 	private MQMonitorBase base;
+
+    @Autowired
+    public MQMetricsQueueManager mqMetricsQueueManager;
+    private MQMetricsQueueManager getMQMetricQueueManager() {
+    	return this.mqMetricsQueueManager;
+    }
 	
     @Autowired
     private pcfQueueManager pcfQueueManager;
@@ -145,14 +151,6 @@ public class MQConnection {
     private pcfConnections getConnectionsObject() {
     	return this.pcfConnections;
     }
-
-    @Autowired
-    public MQMetricsQueueManager mqMetricsQueueManager;
-    private MQMetricsQueueManager getMQMetricQueueManager() {
-    	return this.mqMetricsQueueManager;
-    }
-    
-    //public MQMetricSummary metricSummary;
     
     @Bean
     public JSONController JSONController() {

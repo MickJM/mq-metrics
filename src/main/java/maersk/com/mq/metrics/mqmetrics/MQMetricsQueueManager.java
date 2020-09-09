@@ -360,25 +360,26 @@ public class MQMetricsQueueManager {
 				}
 			}
 			
-			log.debug("Host		: " + getHostName());
-			log.debug("Channel	: " + getChannelName());
-			log.debug("Port		: " + getPort());
-			log.debug("Queue Man	: " + getQueueManagerName());
-			log.debug("User		: " + getUserId());
-			log.debug("Password	: **********");
+			log.debug("Host       : {}", getHostName());
+			log.debug("Channel    : {}", getChannelName());
+			log.debug("Port       : {}", getPort());
+			log.debug("Queue Man  : {}", getQueueManagerName());
+			log.debug("User       : {}", getUserId());
+			log.debug("Password   : {}", "**********");
+			
 			if (usingSSL()) {
 				log.debug("SSL is enabled ....");
 			}
 			
 			// If SSL is enabled (default)
 			if (usingSSL()) {
-				if (!StringUtils.isEmpty(this.truststore)) {
+				if (!StringUtils.isEmpty(TrustStore())) {
 					System.setProperty("javax.net.ssl.trustStore", TrustStore());
 			        System.setProperty("javax.net.ssl.trustStorePassword", TrustStorePass());
 			        System.setProperty("javax.net.ssl.trustStoreType","JKS");
 			        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings",IBMCipherMappings());
 				}
-				if (!StringUtils.isEmpty(this.keystore)) {
+				if (!StringUtils.isEmpty(KeyStore())) {
 			        System.setProperty("javax.net.ssl.keyStore", KeyStore());
 			        System.setProperty("javax.net.ssl.keyStorePassword", KeyStorePass());
 			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
