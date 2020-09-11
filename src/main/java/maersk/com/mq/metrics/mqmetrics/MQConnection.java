@@ -165,8 +165,12 @@ public class MQConnection {
 	public void setProperties() throws MQException, MQDataException, MalformedURLException {
 		
 		log.info("MQConnection: Object created");
-		log.info("OS : {}", System.getProperty("os.name").trim() );
-		log.info("PID: {}", ProcessHandle.current().pid() );
+		try {
+			log.info("OS : {}", System.getProperty("os.name").trim() );
+
+		} catch (Exception e) {
+			// continue
+		}
 		
 	}
 	
