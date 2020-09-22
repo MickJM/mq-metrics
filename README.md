@@ -38,7 +38,7 @@ ibm.mq.queueManager: QMGR
 ibm.mq.channel: SVRCONN.CHANNEL.NAME
 ibm.mq.connName: HOSTNAME(PORT)
 ibm.mq.user: MQUser
-ibm.mq.password: Password
+ibm.mq.password: secret
 ibm.mq.authenticateUsingCSP: true
 ibm.mq.local: false
 ```
@@ -48,9 +48,9 @@ Connections to the queue manager should be encrpyted where possible.  For this, 
 ibm.mq.useSSL: true
 ibm.mq.sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
 ibm.mq.security.truststore: full qualified folder / truststore 
-ibm.mq.security.truststore-password: passw0rd
+ibm.mq.security.truststore-password: secret
 ibm.mq.security.keystore: full qualified folder / keystore 
-ibm.mq.security.keystore-password: password
+ibm.mq.security.keystore-password: secret
 ```
 
 
@@ -71,4 +71,10 @@ Additional properties can be used in the yaml file;
 `debug-level` can be `OFF`, `INFO`, `DEBUG`, `WARN` or `TRACE`
 
 `spring.security.user.name: username` - The username used to authenticate the API when being invoked
-`spring.security.user.password: password` - The password used to authenticate the API when being invoked
+`spring.security.user.password: secret` - The password used to authenticate the API when being invoked
+
+### Running the API
+
+Running the API microservice is easy;
+
+`java -jar mq-metric-1.0.0.17.jar --spring.active.profiles=xxxxxx`
