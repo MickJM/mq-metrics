@@ -25,7 +25,7 @@ ibm:
     useSSL: false
     user: MQmon02
     password: Passw0rdPassw0rd1234
-    authenricateUsingCSP: true
+    authenticateUsingCSP: true
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
