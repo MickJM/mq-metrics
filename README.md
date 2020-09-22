@@ -2,7 +2,7 @@
 
 ## MQ Exporter for Prometheus monitoring
 
-This repository contains Java microservice code for a monitoring solution that exports queue manager metrics to a Prometheus data collection system.  It also contains example configuration files on how to run the monitoring program.
+This repository contains Java Spring Boot, microservice code for a monitoring solution that exports queue manager metrics to a Prometheus data collection system.  It also contains example configuration files on how to run the monitoring program.
 
 The monitor collects metrics from an IBM MQ v9, v8 or v7 queue manager.  The monitor, polls metrics from the queue manager every 10 seconds, which can be changed in the configuration file.  Prometheus can be configured to call the exposed end-point at regular intervals to pull these metrics into its database, where they can be queried directly or used with dashboard applications such as Grafana.
 
@@ -28,3 +28,6 @@ When running as a client connection, the API and the queue manager run on sepera
 
 When running as a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
 
+All configurations are stored in the Spring Boot yaml or properties file.
+
+`ibm.mq.queueManager: QMGR`
