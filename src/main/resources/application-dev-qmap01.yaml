@@ -1,16 +1,15 @@
 logging:
   level:
     org:
-      springframework: OFF
+      springframework: "OFF"
     maersk:
-      com: INFO
+      com: "INFO"
 spring:
   main:
-    banner-mode: CONSOLE
+    banner-mode: "CONSOLE"
   banner:
-    location: banner.txt            
+    location: classpath:/banner.txt            
   security:
-     enabled: disabled
      user:
        name: monitor
        password: monitor123            

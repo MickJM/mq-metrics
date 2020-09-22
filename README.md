@@ -25,11 +25,13 @@ ibm.mq.queueManager: QMGR
 ibm.mq.local: true
 ```
 
+No additional queue manager properties are required, but the APIs common properties can still ne used.
+
 ### Client Connections
 
 When running as a client connection, the API and the queue manager run on seperate servers, the API connects to the queue manager over a network.  The queue manager must be configured to expose a running MQ listener, have a configured server-connection channel and the appropriate authorities set against the MQ objects (queue manager, queues, channels etc) to issue PCF commands.
 
-Minimum requirements
+Minimum yaml requirements in the application-XXXX.yaml file
 
 ```
 ibm.mq.queueManager: QMGR
@@ -40,7 +42,7 @@ ibm.mq.password: Password
 ibm.mq.authenticateUsingCSP: true
 ibm.mq.local: false
 ```
-Connections to the queue manager should be encrpyted where possible.  For this, the queue manager needs to be configured with a key-store and the server-connection channel needs to be configured with a cipher.
+Connections to the queue manager should be encrpyted where possible.  For this, the queue manager needs to be configured with a key-store / trust-store - which can be the same file - and the server-connection channel needs to be configured with a cipher.
 
 ```
 ibm.mq.useSSL: true
@@ -56,5 +58,16 @@ ibm.mq.security.keystore-password: password
 
 When running as a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
 
-All configurations are stored in the Spring Boot yaml or properties file.
+All configurations are stored in the Spring Boot yaml or properties file, which it typically located in a `./config` folder under where the API jar file is run from.
 
+## Common API properites
+
+Additional properties can be used in the yaml file;
+
+`logging.level.org.springfromwork: OFF` - Spring Framework logging
+`logging.level.maersk.com: debug-level` - Maersk objects to debug
+
+`debug-level` can be `OFF`, `INFO`, `DEBUG`, `WARN` or `TRACE`
+
+`spring.security.user.name: username` - The username used to authenticate the API when being invoked
+`spring.security.user.password: password` - The password used to authenticate the API when being invoked
