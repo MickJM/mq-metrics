@@ -31,5 +31,7 @@ When running as a CCDT connection, this is similar to a client connection, with 
 All configurations are stored in the Spring Boot yaml or properties file.
 
 `ibm.mq.queueManager: QMGR
+
 channel: SVRCONN.CHANNEL.NAME
+
 connName: HOSTNAME(PORT)`
