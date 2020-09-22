@@ -46,11 +46,11 @@ public class MQConnection {
 
     private final static Logger log = LoggerFactory.getLogger(MQConnection.class);
 
-	@Value("${application.debug:false}")
-    protected boolean _debug;
+	//@Value("${application.debug:false}")
+    //protected boolean _debug;
 	
-	@Value("${application.debugLevel:NONE}")
-	protected String _debugLevel;
+	//@Value("${application.debugLevel:NONE}")
+	//protected String _debugLevel;
     
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
@@ -337,7 +337,7 @@ public class MQConnection {
 		updateConnectionMetrics();
 		
 		base.setCounter();
-		if (base.getCounter() % base.getClearMetrics() == 0) {
+		if (base.getCounter() % base.ClearMetrics() == 0) {
 			base.setCounter(0);
 			log.debug("Resetting metrics reset counter");
 		}

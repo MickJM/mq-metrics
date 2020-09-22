@@ -118,7 +118,7 @@ public class pcfListener {
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
-		if (base.getCounter() % base.getClearMetrics() == 0) {
+		if (base.getCounter() % base.ClearMetrics() == 0) {
 			log.debug("Clearing listener metrics");
 			resetMetrics();
 		}

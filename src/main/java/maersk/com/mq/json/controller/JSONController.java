@@ -30,9 +30,6 @@ import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.Meter.Id;
 
 import maersk.com.mq.json.entities.*;
-import maersk.com.mq.metrics.mqmetrics.MQMetricsQueueManager;
-import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
-import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 
 @RestController
 @ComponentScan
@@ -44,9 +41,6 @@ public class JSONController  {
 	@Autowired
 	public MeterRegistry meterRegistry;
 
-	//@Autowired
-	//private MQMonitorBase base;
-	
 	@Value("${ibm.mq.json.sort:false}")	
 	private boolean sort;
 	public boolean getSort() {

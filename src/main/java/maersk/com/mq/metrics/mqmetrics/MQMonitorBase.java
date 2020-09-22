@@ -20,18 +20,18 @@ public class MQMonitorBase implements MQPCFConstants {
 	@Autowired
 	public MeterRegistry meterRegistry;
 
-	@Value("${application.debug:false}")
-    protected boolean _debug;
+	//@Value("${application.debug:false}")
+    //protected boolean _debug;
 	
-	@Value("${application.debugLevel:DEBUG}")
-	protected String _debugLevel;
+	//@Value("${application.debugLevel:DEBUG}")
+	//protected String _debugLevel;
 	
 	protected int lev;
 	
 	@Value("${ibm.mq.clearMetrics:10}")
-	private int CONST_CLEARMETRICS;
-	public int getClearMetrics() {
-		return this.CONST_CLEARMETRICS;
+	private int const_clearmetrics;
+	public int ClearMetrics() {
+		return this.const_clearmetrics;
 	}
 	
 	protected int clearMetrics;

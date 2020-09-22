@@ -179,7 +179,7 @@ public class pcfQueue {
 		 * Clear the metrics every 'x' iteration
 		 */
 		//base.setCounter();
-		if (base.getCounter() % base.getClearMetrics() == 0) {
+		if (base.getCounter() % base.ClearMetrics() == 0) {
 			//base.setCounter(0);
 			log.debug("Clearing queue metrics");
 			resetMetrics();

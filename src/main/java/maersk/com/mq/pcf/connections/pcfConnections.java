@@ -73,7 +73,7 @@ public class pcfConnections {
 		 * **** Dont clear the metrics for these, as we want to see who has been connected ****
 		 * Clear the metrics every 'x' iteration
 		 */
-		//if (base.getCounter() % base.getClearMetrics() == 0) {
+		//if (base.getCounter() % base.ClearMetrics() == 0) {
 		//	log.debug("Clearing connections metrics");
 		//	resetMetrics();
 		//}
