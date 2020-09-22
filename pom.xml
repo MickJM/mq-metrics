@@ -82,13 +82,13 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Log4j -->
+		<!-- Log4j 
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>${log4j.version}</version>
 		</dependency>
-		
+		-->
 		<dependency>
     		<groupId>com.fasterxml.jackson.core</groupId>
     		<artifactId>jackson-databind</artifactId>
