@@ -2,125 +2,117 @@ package maersk.com.mq.metrics.mqmetrics;
 
 import static org.junit.Assert.assertTrue;
 
-import org.apache.log4j.Logger;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.text.ParseException;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+import javax.xml.namespace.QName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.annotation.Order;
-
+import org.springframework.stereotype.Component;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.junit4.SpringRunner;
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
+import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.Meter;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Meter.Id;
+import io.micrometer.core.instrument.MeterRegistry;
+import maersk.com.mq.json.entities.Metric;
+import maersk.com.mq.pcf.listener.pcfListener;
 
-//@RunWith(SpringRunner.class)
-//@ActiveProfiles("test")
-@SpringBootApplication
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = { MQMetricsApplication.class })
+@Component
+@ActiveProfiles("test")
 public class MQMetricsApplicationTests {
 
-	static Logger log = Logger.getLogger(MQMetricsApplicationTests.class);
+	private final static Logger log = LoggerFactory.getLogger(MQMetricsApplicationTests.class);
 		
-	private MQMetricsQueueManager qman;
+	@Autowired
+	private MQConnection conn;
+	
+	@Autowired
+	private MeterRegistry meterRegistry;
+	
+	@Value("${ibm.mq.queueManager}")
+	private String queueManager;
+	public void setQueueManager(String v) {
+		this.queueManager = v;
+	}
+	public String getQueueManagerName() { return this.queueManager; }
 	
 	@Test
 	@Order(1)
-	public void minimumMQProperties() {
+	public void testConnectionToTheQueueManager() throws InterruptedException, MQException  {
 
-		log.info("MQ Connection properties");
+		log.info("Attempting to connect to {}", getQueueManagerName());		
+		Thread.sleep(2000);
 
-		assert(System.getenv("IBM.MQ.HOSTNAME")) != null;
-		assert(System.getenv("IBM.MQ.CHANNEL")) != null;
-		assert(System.getenv("IBM.MQ.QUEUEMANAGER")) != null;
-		assert(System.getenv("IBM.MQ.USERID")) != null;
-		assert(System.getenv("IBM.MQ.PASSWORD")) != null;
+		assert (conn != null) : "MQ connection object has not been created";
+
+		MQQueueManager qm = conn.getMQQueueManager();
+		log.info("Return code: " + conn.getReasonCode());
+
+		assert (conn.getReasonCode() != MQConstants.MQRC_NOT_AUTHORIZED) : "Not authorised to access the queue manager, ensure that the username/password are correct";
+		assert (conn.getReasonCode() != MQConstants.MQRC_ENVIRONMENT_ERROR) : "An environment error has been detected, the most likely cause is trying to connect using a password greater than 12 characters";
+		assert (conn.getReasonCode() != MQConstants.MQRC_HOST_NOT_AVAILABLE) : "MQ host is not available";
+		assert (conn.getReasonCode() != MQConstants.MQRC_UNSUPPORTED_CIPHER_SUITE) : "TLS unsupported cipher - set ibmCipherMappings to false if using IBM Oracle JRE";
+		assert (conn.getReasonCode() != MQConstants.MQRC_JSSE_ERROR) : "JSSE error - most likely cause being that certificates are wrong or have expired";
+		assert (conn.getReasonCode() == 0) : "MQ error occurred" ;
+		assert (qm != null) : "Queue manager connection was not successful" ;
 		
 	}
+
 	
 	@Test
 	@Order(2)
-	public void tlsConnectionProperties() {
-
-		log.info("TLS channel connection ");
-
-		String s = System.getenv("IBM.MQ.USESSL");
-		boolean useSSL = false;
-		if (s.equalsIgnoreCase("true")) {
-			useSSL = true;
-		}
-		if (useSSL) {
-			assert(System.getenv("IBM.MQ.TRUSTSTORE")) != null;
-			assert(System.getenv("IBM.MQ.TRUSTSTOREPASS")) != null;
-			assert(System.getenv("IBM.MQ.KEYSTORE")) != null;
-			assert(System.getenv("IBM.MQ.KEYSTOREPASS")) != null;
-			
-		}
-	}
-	
-	@Test
-	@Order(3)
-	public void queueManagerConnectionTest() {
-
-		log.info("Queue manager connection");
-
-		String mess = "Object ";
+	public void testFindGaugeMetrics() throws MQDataException, ParseException, 
+			MQException, IOException, InterruptedException {
 		
-		try {
-			this.qman = new MQMetricsQueueManager();
-			this.qman.setConnName(System.getenv("IBM.MQ.HOSTNAME"));
-			this.qman.setChannelName(System.getenv("IBM.MQ.CHANNEL"));
-			this.qman.setQueueManager(System.getenv("IBM.MQ.QUEUEMANAGER"));
-			this.qman.setUserId(System.getenv("IBM.MQ.USERID"));
-			this.qman.setPassword(System.getenv("IBM.MQ.PASSWORD"));
-			
-			mess = "Queue manager";
-			MQQueueManager qm = qman.createQueueManager();
-			assert (qm) != null;
-
-			mess = "Close ";
-			this.qman.CloseConnection(qm, null);
-			
+		log.info("Attempting to connect to {}", getQueueManagerName());		
+		Thread.sleep(2000);
 		
-		} catch (MQException | MQDataException e) {
-			log.info("Error: " + mess);
-			e.printStackTrace();
+		conn.getMQQueueManager();
+		conn.getMetrics();
+		
+		List<Meter.Id> filter = this.meterRegistry.getMeters().stream()
+		        .map(Meter::getId)
+		        .collect(Collectors.toList());
+
+		Comparator<Meter.Id> byType = (Id a, Id b) -> (a.getName().compareTo(b.getName()));
+		Collections.sort(filter, byType);
+		
+		Iterator<Id> list = filter.iterator();
+		assert(list != null) : "No metrics were returned";
+		
+		int mqMetrics = 0;
+		while (list.hasNext()) {
+			Meter.Id id = list.next();
+			if (id.getName().startsWith("mq:")) {
+				mqMetrics++;
+			}
 		}
+		assert (mqMetrics > 0) : "No mq: metrics generated";
 		
 	}
-
-	
-	@Test
-	@Order(4)
-	public void pcfMessageAgentTest() {
-
-		String mess = "MQ Metrics object";
-		
-		try {
-			this.qman = new MQMetricsQueueManager();
-			this.qman.setConnName("localhost(1442)");
-			this.qman.setChannelName("MQ.MONITOR.SVRCONN");
-			this.qman.setQueueManager("QMAP01");
-			this.qman.setUserId("MQMon01");
-			this.qman.setPassword("Passw0rd");
-			
-			mess = "Queue manager object";
-			MQQueueManager qm = qman.createQueueManager();
-			assert (qm) != null;
-
-			mess = "Message agent object";
-			PCFMessageAgent ag = qman.createMessageAgent(qm);
-			assert (ag) != null;
-			
-			mess = "Close ";
-			this.qman.CloseConnection(qm, ag);
-			
-		
-		} catch (MQException | MQDataException e) {
-			log.info("Error: " + mess);
-			e.printStackTrace();
-		}
-		
-	}
-	
 	
 	
 }

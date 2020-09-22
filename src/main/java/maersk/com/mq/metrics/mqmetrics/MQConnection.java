@@ -2,7 +2,7 @@ package maersk.com.mq.metrics.mqmetrics;
 
 /*
  * Copyright 2019
- * Mick Moriarty - Maersk
+ * Maersk
  *
  * Connect to a queue manager
  * 
@@ -10,72 +10,41 @@ package maersk.com.mq.metrics.mqmetrics;
  *              managers can be checked
  */
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.sql.Timestamp;
+import java.net.MalformedURLException;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.validation.constraints.Null;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.DependsOn;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
-import com.ibm.mq.MQEnvironment;
 import com.ibm.mq.MQException;
 import com.ibm.mq.MQQueueManager;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.PCFMessage;
+import com.ibm.mq.headers.MQExceptionWrapper;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
-import com.ibm.mq.headers.pcf.PCFAgent;
 import com.ibm.mq.headers.pcf.PCFException;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
-import io.micrometer.core.instrument.Tags;
-import io.prometheus.client.Collector;
-import io.prometheus.client.Collector.MetricFamilySamples;
-import io.prometheus.client.CollectorRegistry;
 import maersk.com.mq.pcf.queuemanager.pcfQueueManager;
 import maersk.com.mq.pcf.listener.pcfListener;
 import maersk.com.mq.pcf.queue.pcfQueue;
-import maersk.com.mq.metrics.mqmetrics.MQBase.LEVEL;
-//import maersk.com.mq.metricsummary.Channels;
-//import maersk.com.mq.metricsummary.Channel;
-import maersk.com.mq.metricsummary.MQMetricSummary;
 import maersk.com.mq.pcf.channel.pcfChannel;
+import maersk.com.mq.pcf.connections.pcfConnections;
+import maersk.com.mq.json.controller.JSONController;
 
 @Component
-public class MQConnection extends MQBase {
+public class MQConnection {
 
-    static Logger log = Logger.getLogger(MQConnection.class);
+    private final static Logger log = LoggerFactory.getLogger(MQConnection.class);
 
 	@Value("${application.debug:false}")
     protected boolean _debug;
@@ -83,46 +52,18 @@ public class MQConnection extends MQBase {
 	@Value("${application.debugLevel:NONE}")
 	protected String _debugLevel;
     
-	@Value("${application.save.metrics.required:false}")
-    private boolean summaryRequired;
-
-	//
-	//private boolean onceOnly = true;
-	//public void setOnceOnly(boolean v) {
-	//	this.onceOnly = v;
-	//}
-	//public boolean getOnceOnly() {
-	//	return this.onceOnly;
-	//}
-	
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
 	public boolean isMultiInstance() {
 		return this.multiInstance;
 	}
 	
-	// taken from connName
-	//private String hostName;
-	
 	@Value("${ibm.mq.queueManager}")
 	private String queueManager;
-	
-	// hostname(port)
-	//@Value("${ibm.mq.connName}")
-	//private String connName;	
-	//@Value("${ibm.mq.channel}")
-	//private String channel;
-
-	// taken from connName
-	//private int port;
-	
-	//@Value("${ibm.mq.user}")
-	//private String userId;
-	//@Value("${ibm.mq.password}")
-	//private String password;
-	//@Value("${ibm.mq.sslCipherSpec}")
-	//private String cipher;
-	
+	private String getQueueManagerName() {
+		return this.queueManager;
+	}
+		
 	@Value("${ibm.mq.local:false}")
 	private boolean local;
 	public boolean isRunningLocal() {
@@ -148,78 +89,101 @@ public class MQConnection extends MQBase {
 	@Value("${ibm.mq.security.keystore-password:}")
 	private String keystorepass;
 	
-    //MQ reset
     @Value("${ibm.mq.event.delayInMilliSeconds:10000}")
     private long resetIterations;
 
     private MQQueueManager queManager = null;
+    public MQQueueManager getMQQueueManager() {
+    	return this.queManager;
+    }
+    public void setMQQueueManager(MQQueueManager v) {
+    	this.queManager = v;
+    }
+    
     private PCFMessageAgent messageAgent = null;
-    private PCFAgent agent = null;
+    private PCFMessageAgent getMessageAgent() {
+    	return this.messageAgent;
+    }
+    private void setMessageAgent(PCFMessageAgent v) {
+    	this.messageAgent = v;
+    }
     
-    // MAP details for the metrics
-    private Map<String,AtomicInteger>runModeMap = new HashMap<String,AtomicInteger>();
-	protected static final String runMode = MQPREFIX + "runMode";
+    private int reasonCode;
+    private void saveReasonCode(int v) {
+    	this.reasonCode = v;
+    }
+    public int getReasonCode() {
+    	return this.reasonCode;
+    }
+    
+    
+	@Autowired
+	private MQMonitorBase base;
 
-    //
-    @Autowired
-    public pcfQueueManager pcfQueueManager;
-    @Autowired
-    public pcfListener pcfListener;
-    @Autowired
-    public pcfQueue pcfQueue;
-    @Autowired
-    public pcfChannel pcfChannel;
-    
     @Autowired
     public MQMetricsQueueManager mqMetricsQueueManager;
-    
-    public MQMetricSummary metricSummary;
-
-    @Bean
-    public pcfQueueManager QueueManager() {
-    	return new pcfQueueManager();
+    private MQMetricsQueueManager getMQMetricQueueManager() {
+    	return this.mqMetricsQueueManager;
     }
-    @Bean
-    public pcfListener Listener() {
-    	return new pcfListener();
+	
+    @Autowired
+    private pcfQueueManager pcfQueueManager;
+    public pcfQueueManager getQueueManagerObject() {
+    	return this.pcfQueueManager;
     }
-    @Bean
-    public pcfQueue Queue() {
-    	return new pcfQueue();
+    @Autowired
+    private pcfListener pcfListener;
+    private pcfListener getListenerObject() {
+    	return this.pcfListener;
+    }    
+    @Autowired
+    private pcfQueue pcfQueue;
+    private pcfQueue getQueueObject() {
+    	return this.pcfQueue;
     }
-    
-    @Bean("MetricsSummary")
-    public MQMetricSummary metricSummary() {
-    	this.metricSummary = new MQMetricSummary();
-    	return this.metricSummary;
+    @Autowired
+    private pcfChannel pcfChannel;
+    private pcfChannel getChannelObject() {
+    	return this.pcfChannel;
     }
-
-    @Bean
-    @DependsOn("MetricsSummary")
-    public pcfChannel Channel() {
-    	return new pcfChannel(this.metricSummary);
-    }
-
-    @Bean
-    public MQMetricsQueueManager CreateMetricsQueueManager() {
-    	return new MQMetricsQueueManager();
+    @Autowired
+    private pcfConnections pcfConnections;
+    private pcfConnections getConnectionsObject() {
+    	return this.pcfConnections;
     }
     
-	// Constructor
+    @Bean
+    public JSONController JSONController() {
+    	return new JSONController();
+    }
+
+    // Constructor
 	public MQConnection() {
 	}
 	
 	@PostConstruct
-	public void setProperties() {
+	public void setProperties() throws MQException, MQDataException, MalformedURLException {
 		
-		if (!(getDebugLevel() == LEVEL.NONE)) { log.info("MQConnection: Object created"); }
-		setDebugLevel();
-		this.pcfChannel.loadProperties(this.summaryRequired);
+		log.info("MQConnection: Object created");
+		try {
+			log.info("OS : {}", System.getProperty("os.name").trim() );
+
+		} catch (Exception e) {
+			// continue
+		}
 		
 	}
 	
 	/*
 	 * Every 'x' seconds, start the processing to get the MQ metrics
+	 * 
+	 * Main loop
+	 *    if we have a messageAgent object
+	 *        call 'getMetrics'
+	 *            
+	 *    if not
+	 *        call 'connectToQueueManager'
+	 *    
 	 */
 	@Scheduled(fixedDelayString="${ibm.mq.event.delayInMilliSeconds}")
     public void scheduler() {
@@ -227,364 +191,108 @@ public class MQConnection extends MQBase {
 		resetIterations();
 
 		try {
-			if (this.messageAgent != null) {
-				checkQueueManagerCluster();
-				updateQMMetrics();
-				updateListenerMetrics();
-				updateQueueMetrics();
-				updateChannelMetrics();
+			if (getMessageAgent() != null) {
+				getMetrics();
 				
 			} else {
-				if (!(getDebugLevel() == LEVEL.NONE)) { log.error("No MQ queue manager object"); }
-				createQueueManagerConnection();
-				setPCFParameters();
-
+				connectToQueueManager();
+				
 			}
 			
 		} catch (PCFException p) {
-			if (getDebugLevel() == LEVEL.WARN
-					|| getDebugLevel() == LEVEL.TRACE 
-					|| getDebugLevel() == LEVEL.ERROR
-					|| getDebugLevel() == LEVEL.DEBUG) { 
-				log.error("PCFException " + p.getMessage());
-			}
-			if (getDebugLevel() == LEVEL.WARN
-				|| getDebugLevel() == LEVEL.TRACE 
-				|| getDebugLevel() == LEVEL.ERROR
-				|| getDebugLevel() == LEVEL.DEBUG) { 
-					log.warn("PCFException: ReasonCode " + p.getReason());
-			}
-			if (getDebugLevel() == LEVEL.TRACE) { p.printStackTrace(); }
-			closeQMConnection();
+			log.error("PCFException " + p.getMessage());
+			log.error("PCFException: ReasonCode " + p.getReason());
+			saveReasonCode(p.getReason());
+			if (log.isTraceEnabled()) { p.printStackTrace(); }
+			closeQMConnection(p.getReason());
+			getQueueManagerObject().connectionBroken(p.getReason());
 			queueManagerIsNotRunning(p.getReason());
 			
 		} catch (MQException m) {
-			if (getDebugLevel() == LEVEL.WARN
-					|| getDebugLevel() == LEVEL.TRACE 
-					|| getDebugLevel() == LEVEL.ERROR
-					|| getDebugLevel() == LEVEL.DEBUG) { 
-				log.error("MQException " + m.getMessage());
+			log.error("MQException " + m.getMessage());
+			log.error("MQException: ReasonCode " + m.getReason());			
+			saveReasonCode(m.getReason());
+			if (log.isTraceEnabled()) { m.printStackTrace(); }
+			if (m.getReason() == MQConstants.MQRC_JSSE_ERROR) {
+				log.info("Cause: {}", m.getCause());
 			}
-			if (getDebugLevel() == LEVEL.TRACE) { m.printStackTrace(); }
-			closeQMConnection();
+			closeQMConnection(m.getReason());
+			getQueueManagerObject().connectionBroken(m.getReason());
 			queueManagerIsNotRunning(m.getReason());
 			this.messageAgent = null;
+
+		} catch (MQExceptionWrapper w) {
+			saveReasonCode(9000);
+			closeQMConnection();
+			getQueueManagerObject().connectionBroken(w.getReason());
+			queueManagerIsNotRunning(w.getReason());
 			
 		} catch (IOException i) {
-			if (getDebugLevel() == LEVEL.WARN
-					|| getDebugLevel() == LEVEL.TRACE 
-					|| getDebugLevel() == LEVEL.ERROR
-					|| getDebugLevel() == LEVEL.DEBUG) { 
-				log.error("IOException " + i.getMessage());
-			}
-			if (getDebugLevel() == LEVEL.TRACE) { i.printStackTrace(); }
+			saveReasonCode(9001);
+			log.error("IOException " + i.getMessage());
+			if (log.isTraceEnabled()) { i.printStackTrace(); }
 			closeQMConnection();
+			getQueueManagerObject().connectionBroken();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
-			
+
 		} catch (Exception e) {
-			if (getDebugLevel() == LEVEL.WARN
-					|| getDebugLevel() == LEVEL.TRACE 
-					|| getDebugLevel() == LEVEL.ERROR
-					|| getDebugLevel() == LEVEL.DEBUG) { 
-				log.error("Exception " + e.getMessage());
-			}
-			if (getDebugLevel() == LEVEL.TRACE) { e.printStackTrace(); }
+			saveReasonCode(9002);
+			log.error("Exception " + e.getMessage());
+			if (log.isTraceEnabled()) { e.printStackTrace(); }
 			closeQMConnection();
+			getQueueManagerObject().connectionBroken();
 			queueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
 		}
     }
-    
+    	
 	/*
-	 * Set debug level
+	 * Set the pcfAgent in each class
 	 */
-	private void setDebugLevel() {
-		if (this._debug) {
-			if (this._debugLevel.equals("NONE")) {
-					this._debugLevel = "DEBUG";
-			}
-		}
-		if (!this._debug) {
-			this._debugLevel = "NONE";
-		}
-		setDebugLevel(this._debugLevel);
-		
-	}
-	
-	
-	// Set the MQ Objects parameters
 	private void setPCFParameters() {
-		this.pcfQueueManager.setMessageAgent(this.messageAgent);
-		this.pcfListener.setMessageAgent(this.messageAgent);
-		this.pcfQueue.setMessageAgent(this.messageAgent);
-		this.pcfChannel.setMessageAgent(this.messageAgent);
+		getQueueManagerObject().setMessageAgent(getMessageAgent());
 		
-		this.pcfQueueManager.setDebugLevel(this._debugLevel);
-		this.pcfListener.setDebugLevel(this._debugLevel);
-		this.pcfQueue.setDebugLevel(this._debugLevel);
-		this.pcfChannel.setDebugLevel(this._debugLevel);
+		getListenerObject().setMessageAgent(getMessageAgent());
+		getListenerObject().setQueueManagerName();
+		
+		getQueueObject().setMessageAgent(getMessageAgent());		
+		getChannelObject().setMessageAgent(getMessageAgent());
+		
+		getConnectionsObject().setMessageAgent(getMessageAgent());
+		getConnectionsObject().setQueueManagerName();
+		
 		
 	}
 
+	/*
+	 * Connect to the queue manager
+	 */
+	private void connectToQueueManager() throws MQException, MQDataException, MalformedURLException {
+		log.warn("No MQ queue manager object");
+		
+		createQueueManagerConnection();
+		setPCFParameters();
+		getQueueManagerObject().connectionBroken();
+	}
+	
 	/*
 	 * Create an MQ connection to the queue manager
 	 * ... once connected, create a messageAgent for PCF commands
 	 * 
-	 * @throws MQException
-	 * @throws MQDataException 
 	 */
-	
-	public void createQueueManagerConnection() throws MQException, MQDataException {
-		
-		this.queManager = this.mqMetricsQueueManager.createQueueManager();
-		this.messageAgent = this.mqMetricsQueueManager.createMessageAgent(this.queManager);
-	}
-	
-	/*
-	public void createQueueManagerConnection() throws MQException, MQDataException {
-		
-		Hashtable<String, Comparable> env = null;
-		
-		if (!isRunningLocal()) { 
-			getEnvironmentVariables();
-			if (getDebugLevel() == LEVEL.INFO) { log.info("Attempting to connect using a client connection"); }
+	public void createQueueManagerConnection() throws MQException, MQDataException, MalformedURLException {
 
-			env = new Hashtable<String, Comparable>();
-			env.put(MQConstants.HOST_NAME_PROPERTY, this.hostName);
-			env.put(MQConstants.CHANNEL_PROPERTY, this.channel);
-			env.put(MQConstants.PORT_PROPERTY, this.port);
-			
-			/*
-			 * 
-			 * If a username and password is provided, then use it
-			 * ... if CHCKCLNT is set to OPTIONAL or RECDADM
-			 * ... RECDADM will use the username and password if provided ... if a password is not provided
-			 * ...... then the connection is used like OPTIONAL
-			 */
-			
-	/*
-			if (!StringUtils.isEmpty(this.userId)) {
-				env.put(MQConstants.USER_ID_PROPERTY, this.userId); 
-			}
-			if (!StringUtils.isEmpty(this.password)) {
-				env.put(MQConstants.PASSWORD_PROPERTY, this.password);
-			}
-			env.put(MQConstants.TRANSPORT_PROPERTY,MQConstants.TRANSPORT_MQSERIES);
-	
-			if (isMultiInstance()) {
-				if (getOnceOnly()) {
-					if (getDebugLevel() == LEVEL.INFO) { 
-						log.info("MQ Metrics is running in multiInstance mode");
-					}
-				}
-			}
-			
-			if (getDebugLevel() == LEVEL.DEBUG) {
-				log.debug("Host		: " + this.hostName);
-				log.debug("Channel	: " + this.channel);
-				log.debug("Port		: " + this.port);
-				log.debug("Queue Man	: " + this.queueManager);
-				log.debug("User		: " + this.userId);
-				log.debug("Password	: **********");
-				if (usingSSL()) {
-					log.debug("SSL is enabled ....");
-				}
-			}
-			
-			// If SSL is enabled (default)
-			if (usingSSL()) {
-				if (!StringUtils.isEmpty(this.truststore)) {
-					System.setProperty("javax.net.ssl.trustStore", this.truststore);
-			        System.setProperty("javax.net.ssl.trustStorePassword", this.truststorepass);
-			        System.setProperty("javax.net.ssl.trustStoreType","JKS");
-			        System.setProperty("com.ibm.mq.cfg.useIBMCipherMappings","false");
-				}
-				if (!StringUtils.isEmpty(this.keystore)) {
-			        System.setProperty("javax.net.ssl.keyStore", this.keystore);
-			        System.setProperty("javax.net.ssl.keyStorePassword", this.keystorepass);
-			        System.setProperty("javax.net.ssl.keyStoreType","JKS");
-				}
-				if (!StringUtils.isEmpty(this.cipher)) {
-					env.put(MQConstants.SSL_CIPHER_SUITE_PROPERTY, this.cipher);
-				}
-			
-			} else {
-				if (getDebugLevel() == LEVEL.DEBUG) {
-					log.debug("SSL is NOT enabled ....");
-				}
-			}
-			
-	        //System.setProperty("javax.net.debug","all");
-			if (getDebugLevel() == LEVEL.DEBUG) {
-				if (!StringUtils.isEmpty(this.truststore)) {
-					log.debug("TrustStore       : " + this.truststore);
-					log.debug("TrustStore Pass  : ********");
-				}
-				if (!StringUtils.isEmpty(this.keystore)) {
-					log.debug("KeyStore         : " + this.keystore);
-					log.debug("KeyStore Pass    : ********");
-					log.debug("Cipher Suite     : " + this.cipher);
-				}
-			}
-		} else {
-			if (getDebugLevel() == LEVEL.DEBUG) {
-				log.debug("Attemping to connect using local bindings");
-				log.debug("Queue Man	: " + this.queueManager);
-			}
-			
-		}
-		
-		if (getOnceOnly()) {
-			log.info("Attempting to connect to queue manager " + this.queueManager);
-			setOnceOnly(false);
-		}
-	*/	
-		/*
-		 * Connect to the queue manager 
-		 * ... local connection : application connection in local bindings
-		 * ... client connection: application connection in client mode 
-		 */
-		/*
-		if (this.queManager == null) {
-			if (isRunningLocal()) {
-				this.queManager = new MQQueueManager(this.queueManager);
-				log.info("Local connection established ");
-			} else {
-				this.queManager = new MQQueueManager(this.queueManager, env);
-			}
-			log.info("Connection to queue manager established ");
-			
-		} else {
-			log.info("Connection to queue manager is already established ");
-		}
-		
-		/*
-		 * Establish a PCF agent
-		 */
-		/*
-		log.info("Creating PCFAgent ");
-		if (this.messageAgent == null) {
-			this.messageAgent = new PCFMessageAgent(queManager);
-			log.info("PCF agent to  " + this.queueManager + " established.");
-		} else {
-			log.info("PCFAgent is already established ");
-			
-		}
-	}
-	*/
-	
-	// Set Run mode
-	// 0 - local
-	// 1 - client
-	// Move into MetricQueueManager
-	/*
-	private void setRunMode() {
-
-		int mode = MQPCFConstants.MODE_LOCAL;
-		if (!isRunningLocal()) {
-			mode = MQPCFConstants.MODE_CLIENT;
-		}
-		
-		AtomicInteger rMode = runModeMap.get(runMode);
-		if (rMode == null) {
-			runModeMap.put(runMode, meterRegistry.gauge(runMode, 
-					Tags.of("queueManagerName", this.queueManager),
-					new AtomicInteger(mode))
-					);
-		} else {
-			rMode.set(mode);
-		}
-		
+		setMQQueueManager(getMQMetricQueueManager().multipleQueueManagers());
+		setMessageAgent(getMQMetricQueueManager().createMessageAgent(getMQQueueManager()));
 		
 	}
-	*/
-	
-	/*
-	 * Get MQ details from environment variables
-	 */
-	
-	
-	//private void getEnvironmentVariables() {
 		
-		/*
-		 * ALL parameter are passed in the application.yaml file ...
-		 *    These values can be overrrided using an application-???.yaml file per environment
-		 *    ... or passed in on the command line
-		 */
-		/*
-		// Split the host and port number from the connName ... host(port)
-		if (!validConnectionName()) {
-			Pattern pattern = Pattern.compile("^([^()]*)\\(([^()]*)\\)(.*)$");
-			Matcher matcher = pattern.matcher(this.connName);	
-			if (matcher.matches()) {
-				this.hostName = matcher.group(1).trim();
-				this.port = Integer.parseInt(matcher.group(2).trim());
-			} else {
-				log.error("While attempting to connect to a queue manager, the connName is invalid ");
-				System.exit(MQPCFConstants.EXIT_ERROR);				
-			}
-		} else {
-			log.error("While attempting to connect to a queue manager, the connName is missing  ");
-			System.exit(MQPCFConstants.EXIT_ERROR);
-			
-		}
-
-		/*
-		 * If we dont have a user or a certs are not being used, then we cant connect ... unless we are in local bindings
-		 */
-//		if (validateUserId()) {
-//			if (!usingSSL()) {
-//				log.error("Unable to connect to queue manager, credentials are missing and certificates are not being used");
-//				System.exit(MQPCFConstants.EXIT_ERROR);
-//			}
-//		}
-
-		// if no user, forget it ...
-//		if (this.userId == null) {
-//			return;
-//		}
-
-		/*
-		 * dont allow mqm user
-		 */
-//		if (!validateUserId()) {
-//			if ((validateUserId("mqm") || (validateUserId("MQM")))) {
-//				log.error("The MQ channel USERID must not be running as 'mqm' ");
-//				System.exit(MQPCFConstants.EXIT_ERROR);
-//			}
-//		} else {
-//			this.userId = null;
-//			this.password = null;
-//		}
-	
-//	}
-
-	
-	/*
-	 * Validate connection name and userID
-	 */
-	/*
-	private boolean validConnectionName() {
-		return (this.connName.equals(""));
-	}
-	private boolean validateUserId() {
-		return (this.userId.equals(""));		
-	}
-	private boolean validateUserId(String v) {
-		boolean ret = false;
-		if (this.userId.equals(v)) {
-			ret = true;
-		}
-		return ret;
-	}
-	*/
-	
 	/*
 	 * When the queue manager isn't running, send back a status of inactive 
 	 */
 	private void queueManagerIsNotRunning(int status) {
 
-		if (this.pcfQueueManager != null) {
-			this.pcfQueueManager.notRunning(this.queueManager, isMultiInstance(), status);
+		if (getQueueManagerObject() != null) {
+			getQueueManagerObject().notRunning(getQueueManagerName(), isMultiInstance(), status);
 		}
 
 		/*
@@ -592,17 +300,17 @@ public class MQConnection extends MQBase {
 		 * ... dont clear them if the queue manager is down 
 		 */
 		if (!keepMetricsWhenQueueManagerIsDown) {
-			if (this.pcfListener != null) {
-				this.pcfListener.resetMetrics();
+			if (getListenerObject() != null) {
+				getListenerObject().resetMetrics();
 			}
-			if (this.pcfChannel != null) {
-				this.pcfChannel.resetMetrics();
+			if (getChannelObject() != null) {
+				getChannelObject().resetMetrics();
 			}
-			if (this.pcfChannel != null) {
-				this.pcfChannel.resetMetrics();			
-			}
-			if (this.pcfQueue != null) {
-				this.pcfQueue.resetMetrics();			
+			//if (getQueueManagerObject() != null) {
+			//	getQueueManagerObject().resetMetrics();			
+			//}
+			if (getQueueObject() != null) {
+				getQueueObject().resetMetrics();			
 			}
 		}
 	}
@@ -611,31 +319,49 @@ public class MQConnection extends MQBase {
 	 * Reset iterations value between capturing performance metrics
 	 */
 	private void resetIterations() {
-		
-		this.pcfQueueManager.ResetIteration(this.queueManager);
+		getQueueManagerObject().ResetIteration(getQueueManagerName());
 			
+	}
+	
+	/*
+	 * Get metrics
+	 */
+	public void getMetrics() throws PCFException, MQException, 
+			IOException, MQDataException, ParseException {
+		
+		checkQueueManagerCluster();
+		updateQMMetrics();
+		updateListenerMetrics();
+		updateQueueMetrics();
+		updateChannelMetrics();
+		updateConnectionMetrics();
+		
+		base.setCounter();
+		if (base.getCounter() % base.getClearMetrics() == 0) {
+			base.setCounter(0);
+			log.debug("Resetting metrics reset counter");
+		}
+
 	}
 	
 	/*
 	 * Check if the queue manager belongs to a cluster ...
 	 */
 	private void checkQueueManagerCluster() {
-
-		this.pcfQueueManager.checkQueueManagerCluster();
+		getQueueManagerObject().checkQueueManagerCluster();
 				
 	}
 	
 	/*
-	 * Update the queue manager metrics
-	 * 
+	 * Update the queue manager metrics 
 	 */
 	private void updateQMMetrics() throws PCFException, 
 		MQException, 
 		IOException, 
 		MQDataException {
 
-		this.pcfQueueManager.updateQMMetrics();
-		this.pcfQueue.setQueueMonitoringFromQmgr(this.pcfQueueManager.getQueueMonitoringFromQmgr());		
+		getQueueManagerObject().updateQMMetrics();
+		getQueueObject().setQueueMonitoringFromQmgr(getQueueManagerObject().getQueueMonitoringFromQmgr());		
 		
 	}
 
@@ -647,9 +373,8 @@ public class MQConnection extends MQBase {
 		IOException, 
 		MQDataException {
 
-		this.pcfListener.UpdateListenerMetrics();
-		
-		
+		getListenerObject().UpdateListenerMetrics();
+			
 	}
 		
 	/*
@@ -661,7 +386,7 @@ public class MQConnection extends MQBase {
 		MQDataException, 
 		ParseException {
 		
-		this.pcfChannel.updateChannelMetrics();
+		getChannelObject().updateChannelMetrics();
 		
 	}
 
@@ -673,44 +398,52 @@ public class MQConnection extends MQBase {
 		IOException, 
 		MQDataException {
 
-		this.pcfQueue.updateQueueMetrics();
+		getQueueObject().updateQueueMetrics();
 				
+	}
+
+	/*
+	 * Update the Channel Metrics
+	 * 
+	 */
+	private void updateConnectionMetrics() throws MQException, 
+		IOException,  
+		MQDataException {
+		
+		getConnectionsObject().updateConnectionsMetrics();
+		
 	}
 	
 	/*
 	 * Disconnect cleanly from the queue manager
 	 */
     @PreDestroy
-    public void closeQMConnection() {
+    public void disconnect() {
+    	closeQMConnection();
+    }
+    
+    /*
+     * Disconnect, showing the reason
+     */
+    public void closeQMConnection(int reasonCode) {
 
-    	this.mqMetricsQueueManager.CloseConnection(this.queManager, this.messageAgent);
-    	
-    	/*
-    	try {
-    		if (this.queManager.isConnected()) {
-	    		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("Closing MQ Connection "); }
-    			this.queManager.disconnect();
-    		}
-    	} catch (Exception e) {
-    		// do nothing
-    	}
-    	
-    	try {
-	    	if (this.messageAgent != null) {
-	    		if (getDebugLevel() == LEVEL.DEBUG) { log.debug("Closing PCF agent "); }
-	        	this.messageAgent.disconnect();
-	    	}
-    	} catch (Exception e) {
-    		// do nothing
-    	}
-    	*/
-    	
+		log.info("Disconnected from the queue manager"); 
+		log.info("Reason code: " + reasonCode);
+		getMQMetricQueueManager().CloseConnection(getMQQueueManager(), getMessageAgent());
     	this.queManager = null;
 		this.messageAgent = null;
 		
     }
-	
-        
+	        
+    public void closeQMConnection() {
+
+		log.info("Disconnected from the queue manager"); 
+		getMQMetricQueueManager().CloseConnection(getMQQueueManager(), getMessageAgent());
+    	this.queManager = null;
+		this.messageAgent = null;
+		
+    }
+    
 }
 
 

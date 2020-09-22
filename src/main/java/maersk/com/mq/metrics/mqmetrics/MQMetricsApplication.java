@@ -6,9 +6,12 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@ComponentScan("maersk.com.mq.metrics.mqmetrics.MQMetricsApplicationTests")
-@ComponentScan("maersk.com.mq.metrics.mqmetrics.MQConnection")
-@ComponentScan("maersk.com.mq.pcf.channel.pcfChannel")
+@ComponentScan(basePackages = { "maersk.com.mq.metrics.mqmetrics"} )
+@ComponentScan("maersk.com.mq.pcf.queuemanager")
+@ComponentScan("maersk.com.mq.pcf.listener")
+@ComponentScan("maersk.com.mq.pcf.queue")
+@ComponentScan("maersk.com.mq.pcf.channel")
+@ComponentScan("maersk.com.mq.pcf.connections")
 @SpringBootApplication
 @EnableScheduling
 public class MQMetricsApplication {
@@ -18,6 +21,4 @@ public class MQMetricsApplication {
 		sa.run(args);
 		
 	}
-	
-	
 }

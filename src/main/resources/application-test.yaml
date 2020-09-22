@@ -4,28 +4,29 @@ logging:
       springframework: OFF
     maersk:
       com: INFO
+application:
+  save:
+    metrics:
+     required: false
+     filename: c:\Users\mickm\eclipse-workspace\mq-metrics\mq-metrics\mySavedMetrics.json
 spring:
   main:
     banner-mode: CONSOLE
   banner:
     location: banner.txt            
   security:
-     enabled: disabled
-     user:
-       name: monitor
-       password: monitor123            
+    user:
+      name: monitor
+      password: monitor123            
 ibm:
   mq:
     multiInstance: false
     queueManager: QMAP01
     channel: MQ.MONITOR.SVRCONN
-    channel1: NOCRED_WITHCHLAUTH
     connName: localhost(1501)
-    sslCipherSpec2:
-    sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
-    sslCipherSpec3: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
-    ibmCipherMapping: false
+    sslCipherSpec1: TLS_RSA_WITH_AES_256_CBC_SHA256
+    ibmCipherMappings: false
     useSSL: true
     user: MQmon01
     password: Passw0rd
@@ -33,18 +34,12 @@ ibm:
     local: false
     keepMetricsWhenQueueManagerIsDown: false
     clearMetrics: 5
-    ccdtFile1: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\@ipcc\AMQCLCHL.TAB
-    alerts1:
-      highqueuedepth:
-         action: MQIA_INHIBIT_PUT
-         value: percentage    
-         queue: FRED:60, *:80
     json:
       sort: true
       order: ascending
     objects:
       queues:
-        include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, *
+        include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, "*"
         exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
       channels:
         include: "*"
@@ -66,15 +61,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: info, health, prometheus      
+        include: info, health, prometheus, metrics      
   endpoint:
     health:
-      show-details: always
+      show-details: always        
+  security:
+    enabled: false
 info:
   app:
-    name: mq-metrics-1.0.0.17
+    name: mq-metrics-1.0.0.15
     description: IBM MQ Metrics
-    version: 1.0.0.17
+    version: 1.0.0.15
     java:
       version: 1.8.0.0
 server:
