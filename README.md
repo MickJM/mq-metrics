@@ -47,16 +47,23 @@ Connections to the queue manager should be encrpyted where possible.  For this, 
 ```
 ibm.mq.useSSL: true
 ibm.mq.sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
+ibm.mq.ibmCipherMapping: false 
 ibm.mq.security.truststore: full qualified folder / truststore 
 ibm.mq.security.truststore-password: secret
 ibm.mq.security.keystore: full qualified folder / keystore 
 ibm.mq.security.keystore-password: secret
 ```
 
+`ibm.mq.ibmCipherMapping` can be true of false, depending on the JVM being used.
 
 ### Client Channel Defintion Table (CCDT) connections
 
-When running as a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
+When running with a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
+
+```
+ibm.mq.queueManager: QMGR
+ibm.mq.ccdtFile: {fully qualified file path}\AMQCLCHL.TAB 
+```
 
 All configurations are stored in the Spring Boot yaml or properties file, which it typically located in a `./config` folder under where the API jar file is run from.
 
@@ -78,3 +85,5 @@ Additional properties can be used in the yaml file;
 Running the API microservice is easy;
 
 `java -jar mq-metric-1.0.0.17.jar --spring.active.profiles=xxxxxx`
+
+Where xxxxxx is the sufix name of the yaml file.
