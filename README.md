@@ -52,9 +52,9 @@ Connections to the queue manager should be encrpyted where possible.  For this, 
 ibm.mq.useSSL: true
 ibm.mq.sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
 ibm.mq.ibmCipherMapping: false 
-ibm.mq.security.truststore: full qualified folder / truststore 
+ibm.mq.security.truststore: {fully qualified file path}/truststore 
 ibm.mq.security.truststore-password: secret
-ibm.mq.security.keystore: full qualified folder / keystore 
+ibm.mq.security.keystore: {fully qualified file path}/keystore 
 ibm.mq.security.keystore-password: secret
 ```
 
@@ -68,7 +68,7 @@ When running with a CCDT connection, this is similar to a client connection, wit
 
 ```
 ibm.mq.queueManager: QMGR
-ibm.mq.ccdtFile: {fully qualified file path}\AMQCLCHL.TAB 
+ibm.mq.ccdtFile: {fully qualified file path}/AMQCLCHL.TAB 
 ```
 
 All configurations are stored in the Spring Boot yaml or properties file, which it typically located in a `./config` folder under where the API jar file is run from.
