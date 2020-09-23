@@ -42,6 +42,10 @@ ibm.mq.password: secret
 ibm.mq.authenticateUsingCSP: true
 ibm.mq.local: false
 ```
+
+`ibm.mq.local` can be true of false, depending if the API connects to queue manager in local binding or client mode.
+
+
 Connections to the queue manager should be encrpyted where possible.  For this, the queue manager needs to be configured with a key-store / trust-store - which can be the same file - and the server-connection channel needs to be configured with a cipher.
 
 ```
@@ -53,6 +57,8 @@ ibm.mq.security.truststore-password: secret
 ibm.mq.security.keystore: full qualified folder / keystore 
 ibm.mq.security.keystore-password: secret
 ```
+
+`ibm.mq.useSSL` can be true of false, depending if the MQ server connection channel is configured to be SSL/TLS enabled.
 
 `ibm.mq.ibmCipherMapping` can be true of false, depending on the JVM being used.
 
