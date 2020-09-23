@@ -109,7 +109,7 @@ public class pcfChannel {
 		if (base.getCounter() % base.ClearMetrics() == 0) {
 			//base.setCounter(0);
 			log.debug("Clearing channel metrics");
-			resetMetrics();
+			ResetMetrics();
 		}
 		
 		/*
@@ -717,15 +717,15 @@ public class pcfChannel {
 	/*
 	 * Allow access to delete the metrics
 	 */
-	public void resetMetrics() {
+	public void ResetMetrics() {
 		log.trace("pcfChannel: resetting metrics");
-		deleteMetrics();
+		DeleteMetrics();
 	}	
 	
 	/*
 	 * Reset the metrics
 	 */
-	private void deleteMetrics() {
+	private void DeleteMetrics() {
 		base.deleteMetricEntry(lookupChannel);
 		base.deleteMetricEntry(lookupMsgRec);
 		base.deleteMetricEntry(lookupBytesRec);

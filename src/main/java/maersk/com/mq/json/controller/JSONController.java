@@ -43,7 +43,7 @@ public class JSONController  {
 
 	@Value("${ibm.mq.json.sort:false}")	
 	private boolean sort;
-	public boolean getSort() {
+	public boolean Sort() {
 		return this.sort;
 	}
 	
@@ -63,7 +63,6 @@ public class JSONController  {
 	public ResponseEntity<Object> allmetrics() {
 
 		log.debug("REST JSON API invoked");
-		
 		List<Object> entities = new ArrayList<Object>();		
 		List<Metric> metrics = new ArrayList<Metric>();
 		MetricType mt = new MetricType();
@@ -100,8 +99,7 @@ public class JSONController  {
 	@RequestMapping(method=RequestMethod.GET, value="/getmqmetrics", produces={"application/json"})
 	public ResponseEntity<Object> mqmetrics() {
 
-		log.debug("REST MQ JSON API invoked");
-		
+		log.debug("REST MQ JSON API invoked");		
 		List<Object> entities = new ArrayList<Object>();
 		List<Metric> metrics = new ArrayList<Metric>();
 		MetricType mt = new MetricType();
@@ -119,7 +117,7 @@ public class JSONController  {
 		/*
 		 * Sort, if we have require it
 		 */
-		if (this.sort) {
+		if (Sort()) {
 			if (getOrder().isEmpty() || getOrder() == null) {
 				setOrder("ascending");
 			}

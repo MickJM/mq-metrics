@@ -182,7 +182,7 @@ public class pcfQueue {
 		if (base.getCounter() % base.ClearMetrics() == 0) {
 			//base.setCounter(0);
 			log.debug("Clearing queue metrics");
-			resetMetrics();
+			ResetMetrics();
 		}
 		
 		// 17/10/2019 Amended to include HH.mm.ss
@@ -849,9 +849,9 @@ public class pcfQueue {
 	/*
 	 * Reset metrics
 	 */
-	public void resetMetrics() {
+	public void ResetMetrics() {
 		log.trace("pcfQueue: resetting metrics");
-		deleteMetrics();
+		DeleteMetrics();
 	}
 	
 	/*
@@ -860,7 +860,7 @@ public class pcfQueue {
 	 * Cant put MAX PUT/GET here, as the messages might be deleted
 	 * 
 	 */
-	private void deleteMetrics() {
+	private void DeleteMetrics() {
 
 		base.deleteMetricEntry(lookupQueDepth);
 		base.deleteMetricEntry(lookupOpenIn);

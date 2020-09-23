@@ -86,6 +86,10 @@ Additional properties can be used in the yaml file;
 `spring.security.user.name: username` - The username used to authenticate the API when being invoked
 `spring.security.user.password: secret` - The password used to authenticate the API when being invoked
 
+`ibm.mq.clearMetrics: 5` - Reset and clear the metrics every 5 iterations
+
+ 
+
 ### Running the API
 
 Running the API microservice is easy;

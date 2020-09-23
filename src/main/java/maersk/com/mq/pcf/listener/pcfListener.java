@@ -120,7 +120,7 @@ public class pcfListener {
 		 */
 		if (base.getCounter() % base.ClearMetrics() == 0) {
 			log.debug("Clearing listener metrics");
-			resetMetrics();
+			ResetMetrics();
 		}
 		
 		/*
@@ -346,15 +346,15 @@ public class pcfListener {
 	/*
 	 * Allow access to delete the metrics
 	 */
-	public void resetMetrics() {
+	public void ResetMetrics() {
 		log.trace("pcfListener: resetting metrics");
-		deleteMetrics();
+		DeleteMetrics();
 	}
 	
 	/*
 	 * Delete metrics
 	 */
-	private void deleteMetrics() {
+	private void DeleteMetrics() {
 		base.deleteMetricEntry(lookupListener);
 		this.listenerMap.clear();
 	}	

@@ -46,12 +46,6 @@ public class MQConnection {
 
     private final static Logger log = LoggerFactory.getLogger(MQConnection.class);
 
-	//@Value("${application.debug:false}")
-    //protected boolean _debug;
-	
-	//@Value("${application.debugLevel:NONE}")
-	//protected String _debugLevel;
-    
 	@Value("${ibm.mq.multiInstance:false}")
 	private boolean multiInstance;
 	public boolean isMultiInstance() {
@@ -301,16 +295,16 @@ public class MQConnection {
 		 */
 		if (!keepMetricsWhenQueueManagerIsDown) {
 			if (getListenerObject() != null) {
-				getListenerObject().resetMetrics();
+				getListenerObject().ResetMetrics();
 			}
 			if (getChannelObject() != null) {
-				getChannelObject().resetMetrics();
+				getChannelObject().ResetMetrics();
 			}
 			//if (getQueueManagerObject() != null) {
 			//	getQueueManagerObject().resetMetrics();			
 			//}
 			if (getQueueObject() != null) {
-				getQueueObject().resetMetrics();			
+				getQueueObject().ResetMetrics();			
 			}
 		}
 	}
