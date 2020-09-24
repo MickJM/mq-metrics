@@ -48,7 +48,7 @@ public class MQMonitorBase implements MQPCFConstants {
 	/*
 	 * Delete the appropriate metric
 	 */
-	public void deleteMetricEntry(String lookup) {
+	public void DeleteMetricEntry(String lookup) {
 		
 		List<Meter.Id> meterIds = null;
 		meterIds = this.meterRegistry.getMeters().stream()

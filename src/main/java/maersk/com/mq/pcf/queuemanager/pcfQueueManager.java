@@ -62,7 +62,7 @@ public class pcfQueueManager {
     
     @Autowired
     private MQMetricsQueueManager metqm;
-    
+
     private String cmdLookupStatus = "mq:commandServerStatus";
     private String lookupStatus = "mq:queueManagerStatus";
     private String lookupReset = "mq:resetIterations";
@@ -145,7 +145,7 @@ public class pcfQueueManager {
     /*
      * Set the number of iterations for the metrics to be collected
      */
-	public void ResetIteration(String queueMan) {
+	public void ResetMetricsIteration(String queueMan) {
 
 		AtomicInteger value = iterMap.get(lookupReset + "_" + queueMan);
 		if (value == null) {
@@ -208,7 +208,7 @@ public class pcfQueueManager {
 		
 		int stats = response.getIntParameterValue(MQConstants.MQIA_STATISTICS_Q);
 		if (getSavedQStat() != response.getIntParameterValue(MQConstants.MQIA_STATISTICS_Q)) {
-			metqm.setQueueManagerStatistics(stats);
+			metqm.QueueManagerStatistics(stats);
 			setSavedQStat(stats);
 			setQAcct(true);			
 		}
@@ -218,7 +218,7 @@ public class pcfQueueManager {
 		 */
 		int qAcctValue = response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q);
 		if (getSavedQAcct() != response.getIntParameterValue(MQConstants.MQIA_ACCOUNTING_Q)) {
-			metqm.setAccounting(qAcctValue);
+			metqm.Accounting(qAcctValue);
 			setSavedQAcct(qAcctValue);
 			setQAcct(true);
 		}
@@ -378,10 +378,10 @@ public class pcfQueueManager {
 	 * Remove the metric
 	 */	
 	private void deleteMetrics() {
-		base.deleteMetricEntry(lookupReset);
-		base.deleteMetricEntry(lookupStatus);
-		base.deleteMetricEntry(cmdLookupStatus);
-		base.deleteMetricEntry(lookupMultiInstance);
+		base.DeleteMetricEntry(lookupReset);
+		base.DeleteMetricEntry(lookupStatus);
+		base.DeleteMetricEntry(cmdLookupStatus);
+		base.DeleteMetricEntry(lookupMultiInstance);
 		
 	}
 	

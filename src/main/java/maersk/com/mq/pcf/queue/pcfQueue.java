@@ -862,16 +862,16 @@ public class pcfQueue {
 	 */
 	private void DeleteMetrics() {
 
-		base.deleteMetricEntry(lookupQueDepth);
-		base.deleteMetricEntry(lookupOpenIn);
-		base.deleteMetricEntry(lookupOpenOut);		
-		base.deleteMetricEntry(lookupMaxDepth);		
-		base.deleteMetricEntry(lookupLastGetDateTime);
-		base.deleteMetricEntry(lookupLastPutDateTime);
-		base.deleteMetricEntry(lookupOldMsgAge);
-		base.deleteMetricEntry(lookupdeQueued);
-		base.deleteMetricEntry(lookupenQueued);
-		base.deleteMetricEntry(lookupQueueProcesses);
+		base.DeleteMetricEntry(lookupQueDepth);
+		base.DeleteMetricEntry(lookupOpenIn);
+		base.DeleteMetricEntry(lookupOpenOut);		
+		base.DeleteMetricEntry(lookupMaxDepth);		
+		base.DeleteMetricEntry(lookupLastGetDateTime);
+		base.DeleteMetricEntry(lookupLastPutDateTime);
+		base.DeleteMetricEntry(lookupOldMsgAge);
+		base.DeleteMetricEntry(lookupdeQueued);
+		base.DeleteMetricEntry(lookupenQueued);
+		base.DeleteMetricEntry(lookupQueueProcesses);
 		
 	    this.queueMap.clear();
 	    this.openInMap.clear();

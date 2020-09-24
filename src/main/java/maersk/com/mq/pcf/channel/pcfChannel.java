@@ -30,7 +30,6 @@ import com.ibm.mq.headers.pcf.PCFMessageAgent;
 import io.micrometer.core.instrument.Tags;
 import maersk.com.mq.metrics.mqmetrics.MQPCFConstants;
 import maersk.com.mq.metrics.mqmetrics.MQMonitorBase;
-//import maersk.com.mq.metricsummary.MQMetricSummary;
 
 @Component
 public class pcfChannel {
@@ -726,16 +725,16 @@ public class pcfChannel {
 	 * Reset the metrics
 	 */
 	private void DeleteMetrics() {
-		base.deleteMetricEntry(lookupChannel);
-		base.deleteMetricEntry(lookupMsgRec);
-		base.deleteMetricEntry(lookupBytesRec);
-		base.deleteMetricEntry(lookupBytesSent);
-		base.deleteMetricEntry(lookupMaxMsgSize);
-		base.deleteMetricEntry(lookupInDoubt);
-		base.deleteMetricEntry(lookupDisc);
-		base.deleteMetricEntry(lookupHB);
-		base.deleteMetricEntry(lookupKeepAlive);
-		base.deleteMetricEntry(lookupChannelConns);
+		base.DeleteMetricEntry(lookupChannel);
+		base.DeleteMetricEntry(lookupMsgRec);
+		base.DeleteMetricEntry(lookupBytesRec);
+		base.DeleteMetricEntry(lookupBytesSent);
+		base.DeleteMetricEntry(lookupMaxMsgSize);
+		base.DeleteMetricEntry(lookupInDoubt);
+		base.DeleteMetricEntry(lookupDisc);
+		base.DeleteMetricEntry(lookupHB);
+		base.DeleteMetricEntry(lookupKeepAlive);
+		base.DeleteMetricEntry(lookupChannelConns);
 		
 	    this.channelMap.clear();
 	    this.msgRecMap.clear();

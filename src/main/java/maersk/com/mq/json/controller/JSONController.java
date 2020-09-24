@@ -49,17 +49,17 @@ public class JSONController  {
 	
 	@Value("${ibm.mq.json.order:ascending}")	
 	private String order;
-	public void setOrder(String v) {
+	public void SortOrder(String v) {
 		this.order = v;
 	}
-	public String getOrder() {
+	public String SortOrder() {
 		return this.order;
 	}
 	
 	/*
 	 * URI for ALL metrics
 	 */
-	@RequestMapping(method=RequestMethod.GET, value="/getallmetrics", produces={"application/json"})
+	@RequestMapping(method=RequestMethod.GET, value="/allmetrics", produces={"application/json"})
 	public ResponseEntity<Object> allmetrics() {
 
 		log.debug("REST JSON API invoked");
@@ -96,7 +96,7 @@ public class JSONController  {
 	/*
 	 * URI for mq metrics
 	 */
-	@RequestMapping(method=RequestMethod.GET, value="/getmqmetrics", produces={"application/json"})
+	@RequestMapping(method=RequestMethod.GET, value="/mqmetrics", produces={"application/json"})
 	public ResponseEntity<Object> mqmetrics() {
 
 		log.debug("REST MQ JSON API invoked");		
@@ -118,14 +118,14 @@ public class JSONController  {
 		 * Sort, if we have require it
 		 */
 		if (Sort()) {
-			if (getOrder().isEmpty() || getOrder() == null) {
-				setOrder("ascending");
+			if (SortOrder().isEmpty() || SortOrder() == null) {
+				SortOrder("ascending");
 			}
 			Comparator<Meter.Id> byType = (Id a, Id b) -> (a.getName().compareTo(b.getName()));
-			if (getOrder().equals("ascending")) {
+			if (SortOrder().equals("ascending")) {
 				Collections.sort(filter, byType);
 			}
-			if (getOrder().equals("descending")) {
+			if (SortOrder().equals("descending")) {
 				Collections.sort(filter, byType.reversed());
 			}
 		}

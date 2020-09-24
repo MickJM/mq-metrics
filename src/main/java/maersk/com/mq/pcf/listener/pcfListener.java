@@ -355,7 +355,7 @@ public class pcfListener {
 	 * Delete metrics
 	 */
 	private void DeleteMetrics() {
-		base.deleteMetricEntry(lookupListener);
+		base.DeleteMetricEntry(lookupListener);
 		this.listenerMap.clear();
 	}	
 	

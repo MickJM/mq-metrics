@@ -221,7 +221,7 @@ public class pcfConnections {
 	 */
 	private void deleteMetrics() {
 
-		base.deleteMetricEntry(lookupConns);
+		base.DeleteMetricEntry(lookupConns);
 
 	    this.connMap.clear();
 		
