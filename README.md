@@ -129,9 +129,19 @@ Where xxxxxx is the sufix name of the yaml file.
 
 The following PCF properties are used to get the MQ metrics
 
-Property | Description
----------| -----------
-MQIACF_OLDEST_MSG_AGE | Oldest message age in seconds
+Property | Type | Description
+---------| -----| -----------
+MQCA_Q_NAME | Queue | Queue name
+MQIA_Q_TYPE | Queue | Queue type
+MQIA_USAGE | Queue | Queue usage
+MQIA_CURRENT_Q_DEPTH | Queue | Queue depth
+MQCA_CLUSTER_NAME | Queue | The MQ cluster name
+MQIA_OPEN_INPUT_COUNT | Queue | Number of threads that have the queue open for input
+MQIA_OPEN_OUTPUT_COUNT | Queue | Number of threads that have the queue open for output
+MQIA_MAX_Q_DEPTH | Queue | Maximum number of messages allowed on the queue
+MQCACF_LAST_GET_DATE | Queue | Last GET date in String format 
+MQCACF_LAST_GET_TIME | Queue | Last GET date in String format (Date and Time converted EPOCH date)
+MQIACF_OLDEST_MSG_AGE | Queue | Oldest message age in seconds
 
 
 ## Example output
