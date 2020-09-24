@@ -52,7 +52,15 @@ public class pcfQueue {
 	@Value("${ibm.mq.objects.queues.include}")
     private String[] includeQueues;
 	
-    private int queueMonitoringFromQmgr;
+	/*
+	 * 0 - milli seconds
+	 * 1 - seconds
+	 */
+	@Value("${ibm.mq.objects.epoch:0}")
+    private int epoch;
+	public int Epoch() { return this.epoch; }
+	
+	private int queueMonitoringFromQmgr;
     public int getQueueMonitoringFromQmgr() {
 		return queueMonitoringFromQmgr;
     }
@@ -105,20 +113,27 @@ public class pcfQueue {
 		return this.messageAgent;
 	}
 	
-	@Value("${info.app.version:}")
+	@Value("${info.app.version}")
 	private String appversion;	
-	public String getVersionNumeric() {
+	public String VersionNumeric() {
 		return this.appversion;
 	}
-	public boolean compareVersion(String versionToCompare) {
-		int versionA = Integer.parseInt(getVersionNumeric().replaceAll("\\.", ""));
-		int versionB = Integer.parseInt(versionToCompare.replaceAll("\\.", ""));
-		if (versionB > versionA) {
-			return true;
-		} else {
-			return false;
-		}
+	public boolean CompareVersion(String versionToCompare) {
 		
+		boolean ret = false;
+		try {
+			int versionA = Integer.parseInt(VersionNumeric().replaceAll("\\.", ""));
+			int versionB = Integer.parseInt(versionToCompare.replaceAll("\\.", ""));
+			if (versionB >= versionA) {
+				ret = true;
+				
+			} else {
+				ret =false;
+			}
+		} catch (Exception e) {
+			ret = false;
+		}
+		return ret;
 	}
 	
 	@Autowired
@@ -361,9 +376,9 @@ public class pcfQueue {
 					/*
 					 * Only interested in local queue, should really get the base queue from the alias queue
 					 */
-					if (compareVersion("1.0.0.17")) {
+					if (CompareVersion("1.0.0.17")) {
 						if (qType == MQConstants.MQQT_LOCAL) {
-							checkQueueInhibit(queueName, qType, value, pcfMsg );
+							CheckQueueInhibit(queueName, qType, value, pcfMsg );
 						}
 					}
 					
@@ -410,6 +425,9 @@ public class pcfQueue {
 								 */
 								Date dt = formatter.parse(lastGetDate + " " + lastGetTime);
 								long ld = dt.getTime();
+								if (Epoch() == 1) {
+									ld = ld / 1000;
+								}
 								
 								// Last Get date and time
 								AtomicLong getDate = lastGetMap.get(lookupLastGetDateTime + "_" + queueName);
@@ -440,6 +458,13 @@ public class pcfQueue {
 								 */
 								Date dt = formatter.parse(lastPutDate + " " + lastPutTime);
 								long ld = dt.getTime();
+								if (Epoch() == 1) {
+									ld = ld / 1000;
+								}
+								if (queueName.equals("CARTA")) {
+									log.info("Date = {} {} - EPOCH {}", lastPutDate, lastPutTime, ld);
+									
+								}
 								
 								// Last put date and time
 								AtomicLong lastDate = lastPutMap.get(lookupLastPutDateTime + "_" + queueName);
@@ -547,7 +572,7 @@ public class pcfQueue {
 	/*
 	 * Inhibit PUTs on queues
 	 */
-	private void checkQueueInhibit(String queueName, int qType, int maxQueueDepth, PCFMessage pcfMsg) {
+	private void CheckQueueInhibit(String queueName, int qType, int maxQueueDepth, PCFMessage pcfMsg) {
 
 		if (this.inhibMap.size() == 0) {
 			return;

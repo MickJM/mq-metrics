@@ -116,6 +116,34 @@ Additional properties can be used in the yaml file;
 
 `ibm.mq.keepMetricsWhenQueueManagerIsDown` - Can be true or false, when true, Metrics are not reset and cleared when the API disconnects from the queue manager.
 
+## Filter MQ objects
+
+MQ objects (queues, channels and listeners) can be filtered in or out if required.
+
+### Queues
+
+`ibm.mq.objects.queues.include: Q1, Q2` - List of queues seperated by a comma.  For all queues, use an *
+
+`ibm.mq.objects.queues.exclude: SYSTEM.,AMQ.` - List of queues to exclude, seperated by a comma
+
+### Channels
+
+`ibm.mq.objects.channels.include: CHANNEL1, CHANNEL2` - List of channel names seperated by a comma.  For all channels, use an "*"
+
+`ibm.mq.objects.channels.exclude: SYSTEM.,AMQ.` - List of channel names to exclude, seperated by a comma
+
+### Listeners
+
+`ibm.mq.objects.listeners.include: "*"` - List of listener names seperated by a comma.  For all listeners, use an "*"
+
+`ibm.mq.objects.listeners.exclude:SYSTEM.` - List of listener names to exclude, seperated by a comma
+
+The type of listeners can also be included or excluded.  The most common type of listener is TCP, but others are available.
+
+`ibm.mq.objects.listeners.types.include: TCP` - List of listener types seperated by a comma.  
+
+`ibm.mq.objects.listeners.types.exclude:"*"` - List of listener types to exclude, seperated by a comma
+ 
 
 ## Running the API
 
