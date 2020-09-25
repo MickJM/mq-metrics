@@ -25,7 +25,7 @@ ibm.mq.queueManager: QMGR
 ibm.mq.local: true
 ```
 
-No additional queue manager properties are required, but the APIs common properties can still ne used.
+No additional queue manager properties are required, but the APIs common properties can still be used.
 
 ### Client Connections
 
@@ -98,6 +98,33 @@ JSON output can be sorted into Ascending or Descending order using the following
 `ibm.mq.json.sort:true|false` - The sort value can be true or false.  True sorts the JSON response into the required order.
 `ibm.mq.json.order:ascending|descending` - The order in which to sort the JSON response. By default, the order is in ascending order.
 
+## Filter MQ objects
+
+MQ objects (queues, channels and listeners) can be filtered in or out if required.
+
+### Queues
+
+`ibm.mq.objects.queues.include: Q1, Q2` - List of queues separated by a comma.  For all queues, use an *
+
+`ibm.mq.objects.queues.exclude: SYSTEM.,AMQ.` - List of queues to exclude, separated by a comma
+
+### Channels
+
+`ibm.mq.objects.channels.include: CHANNEL1, CHANNEL2` - List of channel names separated by a comma.  For all channels, use an "*"
+
+`ibm.mq.objects.channels.exclude: SYSTEM.,AMQ.` - List of channel names to exclude, separated by a comma
+
+### Listeners
+
+`ibm.mq.objects.listeners.include: "*"` - List of listener names separated by a comma.  For all listeners, use an "*"
+
+`ibm.mq.objects.listeners.exclude:SYSTEM.` - List of listener names to exclude, separated by a comma
+
+The type of listeners can also be included or excluded.  The most common type of listener is TCP, but others are available.
+
+`ibm.mq.objects.listeners.types.include: TCP` - List of listener types separated by a comma.  
+
+`ibm.mq.objects.listeners.types.exclude:"*"` - List of listener types to exclude, separated by a comma
 
 ## Common API properites
 
@@ -116,34 +143,7 @@ Additional properties can be used in the yaml file;
 
 `ibm.mq.keepMetricsWhenQueueManagerIsDown` - Can be true or false, when true, Metrics are not reset and cleared when the API disconnects from the queue manager.
 
-## Filter MQ objects
-
-MQ objects (queues, channels and listeners) can be filtered in or out if required.
-
-### Queues
-
-`ibm.mq.objects.queues.include: Q1, Q2` - List of queues seperated by a comma.  For all queues, use an *
-
-`ibm.mq.objects.queues.exclude: SYSTEM.,AMQ.` - List of queues to exclude, seperated by a comma
-
-### Channels
-
-`ibm.mq.objects.channels.include: CHANNEL1, CHANNEL2` - List of channel names seperated by a comma.  For all channels, use an "*"
-
-`ibm.mq.objects.channels.exclude: SYSTEM.,AMQ.` - List of channel names to exclude, seperated by a comma
-
-### Listeners
-
-`ibm.mq.objects.listeners.include: "*"` - List of listener names seperated by a comma.  For all listeners, use an "*"
-
-`ibm.mq.objects.listeners.exclude:SYSTEM.` - List of listener names to exclude, seperated by a comma
-
-The type of listeners can also be included or excluded.  The most common type of listener is TCP, but others are available.
-
-`ibm.mq.objects.listeners.types.include: TCP` - List of listener types seperated by a comma.  
-
-`ibm.mq.objects.listeners.types.exclude:"*"` - List of listener types to exclude, seperated by a comma
- 
+`ibm.mq.event.delayInMilliSeconds: 10000` -This is the time, in milliseconds, between each iteration of when the metrics are collected.
 
 ## Running the API
 
@@ -159,6 +159,9 @@ The following PCF properties are used to get the MQ metrics
 
 Property | Type | Description
 ---------| -----| -----------
+MQCA_CLUSTER_Q_MGR_NAME | Queue Manager | Name of the queue manager
+MQCA_CLUSTER_NAME | Queue Manager | Cluster name 
+MQIACF_CMD_SERVER_STATUS | Queue Manager | Command server status
 MQCA_Q_NAME | Queue | Queue name
 MQIA_Q_TYPE | Queue | Queue type
 MQIA_USAGE | Queue | Queue usage
@@ -170,7 +173,34 @@ MQIA_MAX_Q_DEPTH | Queue | Maximum number of messages allowed on the queue
 MQCACF_LAST_GET_DATE | Queue | Last GET date in String format 
 MQCACF_LAST_GET_TIME | Queue | Last GET date in String format (Date and Time converted EPOCH date)
 MQIACF_OLDEST_MSG_AGE | Queue | Oldest message age in seconds
-
+MQIA_MSG_DEQ_COUNT | Queue | Number of messages de-queued (read from queues)
+MQIA_MSG_ENQ_COUNT | Queue | Number of messages en-queued ( written to queues)
+MQIACF_OPEN_INQUIRE | Queue | Open for Inquire
+MQIACF_OPEN_OUTPUT | Queue | Open for Output
+MQCACH_CHANNEL_NAME | Channel | Channel name
+MQIACH_CHANNEL_TYPE | Channel | Channel type
+MQCA_CLUSTER_NAME | Channel | Cluster name on the Channel
+MQIACH_INDOUBT_STATUS | Channel | Channel inboubt status
+MQCACH_CURRENT_LUWID | Channel | Current Logical Unit of Work ID
+MQCACH_LAST_LUWID | Channel | Last Logical Unit of Work ID
+MQIACH_DISC_INTERVAL | Channel | Channel disconnect internal
+MQIACH_HB_INTERVAL | Channel | Channel Heart Beat value
+MQIACH_KEEP_ALIVE_INTERVAL | Channel | Channel keep alive value
+MQCACH_CONNECTION_NAME | Channel | Application connect name
+MQIACH_MSGS | Channel | Sum of all messages over the channel
+MQIACH_BYTES_RECEIVED | Channel | Sum of all bytes received over the channel
+MQIACH_BYTES_SENT | Channel | Sum of all bytes sent across the channel
+MQIACH_MAX_MSG_LENGTH | Channel | Maximum message size of the channel
+MQIA_APPL_TYPE | Connections | Application type
+MQCACF_APPL_TAG | Connections | Application tag (name)
+MQCACF_USER_IDENTIFIER | Connections | Application userid
+MQIACF_PROCESS_ID | Connections | Process id on the queue manager
+MQCACH_CHANNEL_NAME | Connections | Channel name used by the connection
+MQCACH_CONNECTION_NAME | Connections | Name of the connection
+MQCACH_LISTENER_NAME | Listener | Name of the listener
+MQIACH_XMIT_PROTOCOL_TYPE | Listener | Listener type
+MQIACF_LISTENER_STATUS_ATTRS | Listener | Listener status
+MQIACH_PORT | Listener | Listener port number
 
 ## Example output
 
