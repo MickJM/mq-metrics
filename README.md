@@ -202,6 +202,7 @@ MQIACH_XMIT_PROTOCOL_TYPE | Listener | Listener type
 MQIACF_LISTENER_STATUS_ATTRS | Listener | Listener status
 MQIACH_PORT | Listener | Listener port number
 
+
 ## Example output
 
 Prometheus output
