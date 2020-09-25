@@ -274,7 +274,7 @@ public class pcfQueueManager {
 	}
 
 	/*
-	 * Whats the accouting type set to ?
+	 * Whats the accounting type set to ?
 	 */
 	private String getAccountingStatus(int v) {
 		String s = "";

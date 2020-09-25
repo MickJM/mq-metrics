@@ -160,7 +160,9 @@ The following PCF properties are used to get the MQ metrics
 Property | Type | Description
 ---------| -----| -----------
 MQCA_CLUSTER_Q_MGR_NAME | Queue Manager | Name of the queue manager
-MQCA_CLUSTER_NAME | Queue Manager | Cluster name 
+MQCA_CLUSTER_NAME | Queue Manager | Cluster name
+MQIACF_Q_MGR_STATUS | Queue Manager | Queue manager status 
+MQIACF_CMD_SERVER_STATUS | Queue Manager | Command server status
 MQIACF_CMD_SERVER_STATUS | Queue Manager | Command server status
 MQCA_Q_NAME | Queue | Queue name
 MQIA_Q_TYPE | Queue | Queue type
