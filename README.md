@@ -68,6 +68,7 @@ When running with a CCDT connection, this is similar to a client connection, wit
 
 ```
 ibm.mq.queueManager: QMGR
+ibm.mq.channel: SVRCONN.CHANNEL.NAME   
 ibm.mq.ccdtFile: {fully qualified file path}/AMQCLCHL.TAB 
 ```
 
