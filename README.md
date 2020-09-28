@@ -14,7 +14,7 @@ The API can be run in three ways;
 
 * Local binding connection
 * Client connection
-* Client Channel Defintion Table connection
+* Client Channel Definition Table connection
 
 ### Local Binding connections
 
@@ -29,7 +29,7 @@ No additional queue manager properties are required, but the APIs common propert
 
 ### Client Connections
 
-When running as a client connection, the API and the queue manager run on seperate servers, the API connects to the queue manager over a network.  The queue manager must be configured to expose a running MQ listener, have a configured server-connection channel and the appropriate authorities set against the MQ objects (queue manager, queues, channels etc) to issue PCF commands.
+When running as a client connection, the API and the queue manager run on separate servers, the API connects to the queue manager over a network.  The queue manager must be configured to expose a running MQ listener, have a configured server-connection channel and the appropriate authorities set against the MQ objects (queue manager, queues, channels etc) to issue PCF commands.
 
 Minimum yaml requirements in the application-XXXX.yaml file
 
@@ -46,7 +46,7 @@ ibm.mq.local: false
 `ibm.mq.local` can be true of false, depending if the API connects to queue manager in local binding or client mode.
 
 
-Connections to the queue manager should be encrpyted where possible.  For this, the queue manager needs to be configured with a key-store / trust-store - which can be the same file - and the server-connection channel needs to be configured with a cipher.
+Connections to the queue manager should be encrypted where possible.  For this, the queue manager needs to be configured with a key-store / trust-store - which can be the same file - and the server-connection channel needs to be configured with a cipher.
 
 ```
 ibm.mq.useSSL: true
@@ -62,7 +62,7 @@ ibm.mq.security.keystore-password: secret
 
 `ibm.mq.ibmCipherMapping` can be true of false, depending on the JVM being used.
 
-### Client Channel Defintion Table (CCDT) connections
+### Client Channel Definition Table (CCDT) connections
 
 When running with a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
 
