@@ -42,7 +42,7 @@ ibm:
       sort: true
       order: ascending
     objects:
-      epoch: 1
+      epoch: 0
       queues:
         include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, "*"
         exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER

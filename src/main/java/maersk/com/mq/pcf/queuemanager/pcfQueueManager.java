@@ -163,7 +163,7 @@ public class pcfQueueManager {
 	 */
 	public void checkQueueManagerCluster() {
 
-		log.trace("pcfQueueManager: checkQueueManagerCluster");
+		log.debug("pcfQueueManager: checkQueueManagerCluster");
 
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };        
         PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CLUSTER_Q_MGR);
@@ -180,7 +180,7 @@ public class pcfQueueManager {
 	        setQueueManagerClusterName(clusterNames.trim());
 
         } catch (Exception e) {
-    		log.trace("pcfQueueManager: Exception, queue manager doesn't belong to a cluster");
+    		log.debug("pcfQueueManager: Exception, queue manager doesn't belong to a cluster");
         }	
 	}
 	
@@ -243,7 +243,7 @@ public class pcfQueueManager {
 		/*
 		 *  queue manager status
 		 */
-		log.trace("pcfQueueManager: queue manager status");
+		log.debug("pcfQueueManager: queue manager status");
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
 		AtomicInteger qmStat = qmMap.get(lookupStatus + "_" + getQueueManagerName());
 		if (qmStat == null) {
@@ -259,7 +259,7 @@ public class pcfQueueManager {
 		/*
 		 *  command server status
 		 */
-		log.trace("pcfQueueManager: command server status");
+		log.debug("pcfQueueManager: command server status");
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
 		AtomicInteger value = cmdMap.get(cmdLookupStatus + "_" + getQueueManagerName());
 		if (value == null) {
@@ -369,7 +369,7 @@ public class pcfQueueManager {
 	 * Reset metrics
 	 */
 	public void resetMetrics() {
-	//	log.trace("pcfQueueManager: resetting metrics");
+	//	log.debug("pcfQueueManager: resetting metrics");
 	//	deleteMetrics();
 		
 	}
