@@ -67,7 +67,7 @@ public class pcfConnections {
 	
 	public void updateConnectionsMetrics() throws MQException, IOException, MQDataException {
 		
-		log.trace("pcfConnections: inquire on connections");
+		log.debug("pcfConnections: inquire on connections");
 
 		/*
 		 * **** Dont clear the metrics for these, as we want to see who has been connected ****
@@ -131,7 +131,7 @@ public class pcfConnections {
 				}
 				
 			} catch (Exception e) {
-				log.trace("pcfQueue: unable to get queue metrcis : " + e.getMessage());
+				log.debug("pcfQueue: unable to get queue metrcis : " + e.getMessage());
 			}
 			
 		}
@@ -211,7 +211,7 @@ public class pcfConnections {
 	 * Reset metrics
 	 */
 	public void resetMetrics() {
-		log.trace("pcfQueue: resetting metrics");
+		log.debug("pcfQueue: resetting metrics");
 		deleteMetrics();
 	}
 	

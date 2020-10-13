@@ -124,18 +124,18 @@ public class pcfChannel {
 			pcfResponse = getMessageAgent().send(pcfRequest);
 		
 		} catch (Exception e) {
-			log.trace("pcfChannel: no response returned - " + e.getMessage());
+			log.debug("pcfChannel: no response returned - " + e.getMessage());
 			
 		}		
 				
-		log.trace("pcfChannel: inquire on channel response");
+		log.debug("pcfChannel: inquire on channel response");
 		int[] pcfStatAttrs = { MQConstants.MQIACF_ALL };
 
 		// for each return response, loop
 		try {
 			for (PCFMessage pcfMsg : pcfResponse) {
 				String channelName = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CHANNEL_NAME).trim(); 
-				log.trace("pcfChannel: " + channelName);
+				log.debug("pcfChannel: " + channelName);
 				
 				int chlType = pcfMsg.getIntParameterValue(MQConstants.MQIACH_CHANNEL_TYPE);	
 				String channelType = getChannelType(chlType);
@@ -148,7 +148,7 @@ public class pcfChannel {
 				
 				// Correct channel ?
 				if (checkChannelNames(channelName)) {
-					log.trace("pcfChannel: inquire channel status " + channelName);
+					log.debug("pcfChannel: inquire channel status " + channelName);
 					PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_CHANNEL_STATUS);
 					pcfReq.addParameter(MQConstants.MQCACH_CHANNEL_NAME, channelName);
 					pcfReq.addParameter(MQConstants.MQIACH_CHANNEL_INSTANCE_TYPE, MQConstants.MQOT_CURRENT_CHANNEL);				
@@ -158,7 +158,7 @@ public class pcfChannel {
 			        PCFMessage[] pcfResp = null;
 					try {
 						pcfResp = getMessageAgent().send(pcfReq);
-						log.trace("pcfChannel: inquire channel status response ");
+						log.debug("pcfChannel: inquire channel status response ");
 						PCFMessage pcfStatus = pcfResp[MQPCFConstants.BASE];
 			
 						/*
@@ -181,7 +181,7 @@ public class pcfChannel {
  
 					} catch (PCFException pcfe) {
 						if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
-							log.trace("pcfChannel: inquire channel status NOT FOUND"); 
+							log.debug("pcfChannel: inquire channel status NOT FOUND"); 
 							AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName);
 							if (channels == null) {
 								channelMap.put(lookupChannel + "_" + channelName, base.meterRegistry.gauge(lookupChannel, 
@@ -199,7 +199,7 @@ public class pcfChannel {
 						}
 						
 					} catch (Exception e) {
-						log.trace("pcfChannel: inquire channel status exception: " + e.getMessage());
+						log.debug("pcfChannel: inquire channel status exception: " + e.getMessage());
 						AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName);
 						if (channels == null) {
 							channelMap.put(lookupChannel + "_" + channelName, 
@@ -224,7 +224,7 @@ public class pcfChannel {
 					 * https://www.ibm.com/support/knowledgecenter/SSFKSJ_9.1.0/com.ibm.mq.con.doc/q015690_.htm
 					 */
 					try {
-						log.trace("pcfChannel: Channel in-doubt ");
+						log.debug("pcfChannel: Channel in-doubt ");
 
 						int channelInDoubt = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_INDOUBT_STATUS);
 						String currentLUWID = pcfResp[0].getStringParameterValue(MQConstants.MQCACH_CURRENT_LUWID);
@@ -248,7 +248,7 @@ public class pcfChannel {
 						}
 						
 					} catch (Exception e) {
-						log.trace("pcfChannel: in-doubt status: " + e.getMessage());
+						log.debug("pcfChannel: in-doubt status: " + e.getMessage());
 						
 					}
 					
@@ -256,7 +256,7 @@ public class pcfChannel {
 					 * Channel Disconnect Interval
 					 */
 					try {
-						log.trace("pcfChannel: disconnect interval ");
+						log.debug("pcfChannel: disconnect interval ");
 
 						int discConnect = pcfMsg.getIntParameterValue(MQConstants.MQIACH_DISC_INTERVAL);
 						
@@ -276,7 +276,7 @@ public class pcfChannel {
 						}
 						
 					} catch (Exception e) {
-						log.trace("pcfChannel: disconect: " + e.getMessage());
+						log.debug("pcfChannel: disconect: " + e.getMessage());
 						
 					}
 					
@@ -284,7 +284,7 @@ public class pcfChannel {
 					 * Channel HeartBeat Interval
 					 */
 					try {
-						log.trace("pcfChannel: heartbeat interval ");
+						log.debug("pcfChannel: heartbeat interval ");
 
 						int hbInt = pcfMsg.getIntParameterValue(MQConstants.MQIACH_HB_INTERVAL);
 						
@@ -304,7 +304,7 @@ public class pcfChannel {
 						}
 						
 					} catch (Exception e) {
-						log.trace("pcfChannel: hearbeat: " + e.getMessage());
+						log.debug("pcfChannel: hearbeat: " + e.getMessage());
 						
 					}
 
@@ -312,7 +312,7 @@ public class pcfChannel {
 					 * Channel Hibernate
 					 */
 					try {
-						log.trace("pcfChannel: hibernate interval ");
+						log.debug("pcfChannel: hibernate interval ");
 
 						int keepAliveInt = pcfMsg.getIntParameterValue(MQConstants.MQIACH_KEEP_ALIVE_INTERVAL);
 						
@@ -332,14 +332,14 @@ public class pcfChannel {
 						}
 						
 					} catch (Exception e) {
-						log.trace("pcfChannel: KeepAlive: " + e.getMessage());
+						log.debug("pcfChannel: KeepAlive: " + e.getMessage());
 						
 					}
 					
 					long msgsOverChannels = 0l;
 					int bytesReceviedOverChannels = MQPCFConstants.BASE;
 					int bytesSentOverChannels = MQPCFConstants.BASE;
-					log.trace("pcfChannel: inquire messages over channels");
+					log.debug("pcfChannel: inquire messages over channels");
 					
 					/*
 					 * Connections per IP address on each channel
@@ -349,7 +349,7 @@ public class pcfChannel {
 					
 					try {		
 						int size = 0;						
-						log.trace("pcfChannel: channel count: " + size);
+						log.debug("pcfChannel: channel count: " + size);
 						String savedIPaddress = 
 								pcfResp[0].
 								getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).
@@ -400,7 +400,7 @@ public class pcfChannel {
 							
 						}
 						if (msgsOverChannels > 0) {
-							log.trace("pcfChannel: channel count: " + msgsOverChannels);
+							log.debug("pcfChannel: channel count: " + msgsOverChannels);
 							AtomicLong msgRec = msgRecMap.get(lookupMsgRec + "_" + channelName);
 							if (msgRec == null) {
 								msgRecMap.put(lookupMsgRec + "_" + channelName, base.meterRegistry.gauge(lookupMsgRec, 
@@ -418,7 +418,7 @@ public class pcfChannel {
 						
 					} catch (Exception e) {
 						if (msgsOverChannels > 0) {
-							log.trace("pcfChannel: inquire channel status exception (1): " + e.getMessage()); 
+							log.debug("pcfChannel: inquire channel status exception (1): " + e.getMessage()); 
 							AtomicLong msgRec = msgRecMap.get(lookupMsgRec + "_" + channelName);
 							if (msgRec == null) {
 								msgRecMap.put(lookupMsgRec + "_" + channelName, base.meterRegistry.gauge(lookupMsgRec, 
@@ -560,7 +560,7 @@ public class pcfChannel {
 			}
 			
 		} catch (Exception e) {
-			log.trace("pcfChannel: unable to get channel metrics " + e.getMessage());
+			log.debug("pcfChannel: unable to get channel metrics " + e.getMessage());
 		
 		}
 				
@@ -717,7 +717,7 @@ public class pcfChannel {
 	 * Allow access to delete the metrics
 	 */
 	public void ResetMetrics() {
-		log.trace("pcfChannel: resetting metrics");
+		log.debug("pcfChannel: resetting metrics");
 		DeleteMetrics();
 	}	
 	

@@ -139,7 +139,7 @@ public class pcfListener {
 			log.warn("pcfListener: no response returned - " + e.getMessage());
 			
 		}
-		log.trace("pcfListener: inquire listener response");
+		log.debug("pcfListener: inquire listener response");
         int[] pcfStatAttrs = { 	MQConstants.MQIACF_ALL };
         
 		/*
@@ -162,7 +162,7 @@ public class pcfListener {
 					
 					// Correct listener type ? Only interested in TCP
 					if (checkType(typeName)) {
-						log.trace("pcfListener: valid type");
+						log.debug("pcfListener: valid type");
 	
 						PCFMessage pcfReq = new PCFMessage(MQConstants.MQCMD_INQUIRE_LISTENER_STATUS);
 						pcfReq.addParameter(MQConstants.MQCACH_LISTENER_NAME, listenerName);
@@ -248,7 +248,7 @@ public class pcfListener {
 				}
 	        }
 		} catch (Exception e) {
-			log.trace("pcfListener: unable to get listener metrcis " + e.getMessage());
+			log.debug("pcfListener: unable to get listener metrcis " + e.getMessage());
 			
 		}
 	}
@@ -347,7 +347,7 @@ public class pcfListener {
 	 * Allow access to delete the metrics
 	 */
 	public void ResetMetrics() {
-		log.trace("pcfListener: resetting metrics");
+		log.debug("pcfListener: resetting metrics");
 		DeleteMetrics();
 	}
 	

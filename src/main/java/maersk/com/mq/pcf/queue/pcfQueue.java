@@ -679,7 +679,12 @@ public class pcfQueue {
 		int openInput = 0;
 		int openOutput = 0;
 		int v = 0;
-		
+
+		/*
+		 * Create an openOutput and openInput 'event' for each MQhandle 
+		 * ... MQExplorer shows both input and output handles
+		 * Not really a required, but shows no ambiguity
+		 */
 		for (PCFMessage pcfMsg : pcfResHandle) {
 
 			String appName = 
@@ -699,14 +704,11 @@ public class pcfQueue {
 				openOut.set(0);
 			}
 
-			//int v = pcfMsg.getIntParameterValue(MQConstants.MQIACF_OPEN_INQUIRE);		
-			//openInput+=v;
-			//v = pcfMsg.getIntParameterValue(MQConstants.MQIACF_OPEN_OUTPUT);		
-			//openOutput+=v;
-
 		}
-		//PCFMessage pcfMsg = pcfResHandle[0];
 		
+		/*
+		 * For each MQhandle, set increment the count
+		 */
 		for (PCFMessage pcfMsg : pcfResHandle) {
 			
 			String conn = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();
