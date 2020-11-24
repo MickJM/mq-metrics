@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,11 +51,12 @@ public class pcfListener {
     	this.messageAgent = v;
     }
     
-    //Listener status maps
-    private Map<String,AtomicInteger>listenerStatusMap = new HashMap<String, AtomicInteger>();
-    
     private String lookupListener = "mq:listenerStatus";
-    private Map<String,AtomicInteger>listenerMap = new HashMap<String,AtomicInteger>();
+    
+    /*
+     * 22/10/2020 MJM - Amended listenerStatusMap to AtomicLong
+     */
+    private Map<String,AtomicLong>listenerMap = new HashMap<String,AtomicLong>();
 
     // Listeners ...
 	@Value("${ibm.mq.objects.listeners.exclude}")
@@ -179,7 +182,7 @@ public class pcfListener {
 						//	type = pcfResp[0].getIntParameterValue(MQConstants.MQIACH_XMIT_PROTOCOL_TYPE);
 						//	String protocol = this.typeList.get(type);
 							
-							AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + listenerName );
+							AtomicLong qmListener = listenerMap.get(lookupListener + "_" + listenerName );
 							if (qmListener == null) {
 								listenerMap.put(lookupListener + "_" + listenerName, base.meterRegistry.gauge(lookupListener, 
 										Tags.of("queueManagerName", getQueueManagerName(),
@@ -187,7 +190,7 @@ public class pcfListener {
 		//										"type", Integer.toString(type),
 												"type", typeName,									
 												"port", Integer.toString(portNumber)),
-										new AtomicInteger(listenerStatus))
+										new AtomicLong(listenerStatus))
 										);
 							} else {
 								qmListener.set(listenerStatus);
@@ -196,7 +199,7 @@ public class pcfListener {
 						} catch (PCFException pcfe) {
 							if (pcfe.reasonCode == MQConstants.MQRCCF_LSTR_STATUS_NOT_FOUND) {
 								//String protocol = this.typeList.get(-2);
-								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + listenerName);
+								AtomicLong qmListener = listenerMap.get(lookupListener + "_" + listenerName);
 								if (qmListener == null) {
 									listenerMap.put(lookupListener + "_" + listenerName, 
 											base.meterRegistry.gauge(lookupListener, 
@@ -204,7 +207,7 @@ public class pcfListener {
 													"listenerName", listenerName,
 													"type", typeName,
 													"port", Integer.toString(portNumber)),
-											new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+											new AtomicLong(MQPCFConstants.PCF_INIT_VALUE))
 											);
 								} else {
 									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
@@ -212,7 +215,7 @@ public class pcfListener {
 							}
 							if (pcfe.reasonCode == MQConstants.MQRC_UNKNOWN_OBJECT_NAME) {								
 								//String protocol = this.typeList.get(-2);								
-								AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + listenerName);
+								AtomicLong qmListener = listenerMap.get(lookupListener + "_" + listenerName);
 								if (qmListener == null) {
 									listenerMap.put(lookupListener + "_" + listenerName, 
 											base.meterRegistry.gauge(lookupListener, 
@@ -220,7 +223,7 @@ public class pcfListener {
 													"listenerName", listenerName,
 													"type", typeName,
 													"port", Integer.toString(portNumber)),
-											new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+											new AtomicLong(MQPCFConstants.PCF_INIT_VALUE))
 											);
 								} else {
 									qmListener.set(MQPCFConstants.PCF_INIT_VALUE);
@@ -230,7 +233,7 @@ public class pcfListener {
 							
 						} catch (Exception e) {
 							//String protocol = this.typeList.get(-2);
-							AtomicInteger qmListener = listenerMap.get(lookupListener + "_" + listenerName);
+							AtomicLong qmListener = listenerMap.get(lookupListener + "_" + listenerName);
 							if (qmListener == null) {
 								listenerMap.put(lookupListener + "_" + getQueueManagerName(), 
 										base.meterRegistry.gauge(lookupListener, 
@@ -238,7 +241,7 @@ public class pcfListener {
 												"listenerName", listenerName,
 												"type", typeName,
 												"port", Integer.toString(portNumber)),
-										new AtomicInteger(MQPCFConstants.PCF_INIT_VALUE))
+										new AtomicLong(MQPCFConstants.PCF_INIT_VALUE))
 										);
 							} else {
 								qmListener.set(MQPCFConstants.PCF_INIT_VALUE);

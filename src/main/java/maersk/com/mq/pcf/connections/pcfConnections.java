@@ -29,7 +29,10 @@ public class pcfConnections {
 
 	private final static Logger log = LoggerFactory.getLogger(pcfConnections.class);
     
-	private Map<String,AtomicInteger>connMap = new HashMap<String,AtomicInteger>();
+	/*
+	 * 22/10/2020 MJM - Amended connMap to AtomicLong 
+	 */
+	private Map<String,AtomicLong>connMap = new HashMap<String,AtomicLong>();
 	private String lookupConns = "mq:connections";
 	
 	private String queueManagerName;
@@ -187,7 +190,7 @@ public class pcfConnections {
 		String connectionName = pcfMsg.getStringParameterValue(MQConstants.MQCACH_CONNECTION_NAME).trim();		
 
 		String label = lookupConns + "_" + applType + "_" + channelName + "_" + connectionName + "_" + procId;
-		AtomicInteger c = connMap.get(label);
+		AtomicLong c = connMap.get(label);
 		
 		if (c == null) {			
 			connMap.put(label, base.meterRegistry.gauge(lookupConns, 
@@ -199,7 +202,7 @@ public class pcfConnections {
 						"processId",Integer.toString(procId),
 						"connectionName",connectionName
 						),
-				new AtomicInteger(count))
+				new AtomicLong(count))
 				);
 		} else {
 			c.set(count);

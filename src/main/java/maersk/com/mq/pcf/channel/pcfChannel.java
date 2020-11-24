@@ -47,7 +47,10 @@ public class pcfChannel {
 	private String lookupHB = "mq:channelHeartBeatInt";
 	private String lookupKeepAlive = "mq:channelKeepAliveInt";
 	
-    private Map<String,AtomicInteger>channelMap = new HashMap<String,AtomicInteger>();
+	/*
+	 * 22/10/2020 - MJM - Amended channelMap to AtomicLong
+	 */
+    private Map<String,AtomicLong>channelMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgRecMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgBytesRecMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>msgBytesSentMap = new HashMap<String,AtomicLong>();
@@ -165,7 +168,7 @@ public class pcfChannel {
 						 * Channel status
 						 */
 						int channelStatus = pcfStatus.getIntParameterValue(MQConstants.MQIACH_CHANNEL_STATUS);
-						AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName );
+						AtomicLong channels = channelMap.get(lookupChannel + "_" + channelName );
 						if (channels == null) {
 							channelMap.put(lookupChannel + "_" + channelName, base.meterRegistry.gauge(lookupChannel, 
 									Tags.of("queueManagerName", this.queueManager,
@@ -173,7 +176,7 @@ public class pcfChannel {
 											"channelName", channelName,
 											"cluster", channelCluster
 											),
-									new AtomicInteger(channelStatus))
+									new AtomicLong(channelStatus))
 									);
 						} else {
 							channels.set(channelStatus);
@@ -182,7 +185,7 @@ public class pcfChannel {
 					} catch (PCFException pcfe) {
 						if (pcfe.reasonCode == MQConstants.MQRCCF_CHL_STATUS_NOT_FOUND) {
 							log.debug("pcfChannel: inquire channel status NOT FOUND"); 
-							AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName);
+							AtomicLong channels = channelMap.get(lookupChannel + "_" + channelName);
 							if (channels == null) {
 								channelMap.put(lookupChannel + "_" + channelName, base.meterRegistry.gauge(lookupChannel, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -190,7 +193,7 @@ public class pcfChannel {
 												"channelName", channelName,
 												"cluster", channelCluster
 												),
-										new AtomicInteger(MQConstants.MQCHS_INACTIVE))
+										new AtomicLong(MQConstants.MQCHS_INACTIVE))
 										);
 							} else {
 								channels.set(MQConstants.MQCHS_INACTIVE);
@@ -200,7 +203,7 @@ public class pcfChannel {
 						
 					} catch (Exception e) {
 						log.debug("pcfChannel: inquire channel status exception: " + e.getMessage());
-						AtomicInteger channels = channelMap.get(lookupChannel + "_" + channelName);
+						AtomicLong channels = channelMap.get(lookupChannel + "_" + channelName);
 						if (channels == null) {
 							channelMap.put(lookupChannel + "_" + channelName, 
 									base.meterRegistry.gauge(lookupChannel, 
@@ -209,7 +212,7 @@ public class pcfChannel {
 											"channelName", channelName,
 											"cluster", channelCluster
 											),
-									new AtomicInteger(MQConstants.MQCHS_INACTIVE))
+									new AtomicLong(MQConstants.MQCHS_INACTIVE))
 									);
 						} else {
 							channels.set(MQConstants.MQCHS_INACTIVE);

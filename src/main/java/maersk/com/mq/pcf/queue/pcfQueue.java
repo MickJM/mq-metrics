@@ -68,22 +68,20 @@ public class pcfQueue {
 		this.queueMonitoringFromQmgr = value;
 	}
 
-    private Map<String,AtomicInteger>queueMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>openInMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>openOutMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>maxQueMap = new HashMap<String,AtomicInteger>();
+	/*
+	 * 22/10/2020 MJM - Update queueMap, openInMap, openOutMap, deQueMap, enQueMap, procMap to AtomicLong
+	 */
+    private Map<String,AtomicLong>queueMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>openInMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>openOutMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>maxQueMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>lastGetMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>lastPutMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>oldAgeMap = new HashMap<String,AtomicLong>();    
-    private Map<String,AtomicInteger>deQueMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>enQueMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>procMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>msgMaxPutMsgSizeMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>msgMaxGetMsgSizeMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicLong>deQueMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>enQueMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>procMap = new HashMap<String,AtomicLong>();
     
-    private Map<String,AtomicLong>msgPutPMsgCountMap = new HashMap<String,AtomicLong>();
-    private Map<String,AtomicLong>msgGetPMsgCountMap = new HashMap<String,AtomicLong>();
-        
     private String lookupQueDepth = "mq:queueDepth";
     private String lookupOpenIn = "mq:openInputCount";
     private String lookupOpenOut = "mq:openOutputCount";
@@ -279,7 +277,7 @@ public class pcfQueue {
 					 * Queue depth
 					 */
 					log.debug("pcfQueue: queue depth");
-					AtomicInteger qdep = queueMap.get(lookupQueDepth + "_" + queueName);
+					AtomicLong qdep = queueMap.get(lookupQueDepth + "_" + queueName);
 					if (qdep == null) {
 						queueMap.put(lookupQueDepth + "_" + queueName, base.meterRegistry.gauge(lookupQueDepth, 
 								Tags.of("queueManagerName", this.queueManager,
@@ -288,7 +286,7 @@ public class pcfQueue {
 										"usage",queueUsage,
 										"cluster",queueCluster
 										),
-								new AtomicInteger(value))
+								new AtomicLong(value))
 								);
 					} else {
 						qdep.set(value);
@@ -303,7 +301,7 @@ public class pcfQueue {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						openInvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_INPUT_COUNT);
 						if (openInvalue > 0) {
-							AtomicInteger openIn = openInMap.get(lookupOpenIn + "_" + queueName);
+							AtomicLong openIn = openInMap.get(lookupOpenIn + "_" + queueName);
 							if (openIn == null) {
 								openInMap.put(lookupOpenIn + "_" + queueName, base.meterRegistry.gauge(lookupOpenIn, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -312,7 +310,7 @@ public class pcfQueue {
 												"usage",queueUsage,
 												"cluster",queueCluster
 												),
-										new AtomicInteger(openInvalue))
+										new AtomicLong(openInvalue))
 										);
 							} else {
 								openIn.set(openInvalue);
@@ -328,7 +326,7 @@ public class pcfQueue {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						openOutvalue = pcfMsg.getIntParameterValue(MQConstants.MQIA_OPEN_OUTPUT_COUNT);
 						if (openOutvalue > 0) {
-							AtomicInteger openOut = openOutMap.get(lookupOpenOut + "_" + queueName);
+							AtomicLong openOut = openOutMap.get(lookupOpenOut + "_" + queueName);
 							if (openOut == null) {
 								openOutMap.put(lookupOpenOut + "_" + queueName, base.meterRegistry.gauge(lookupOpenOut, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -337,7 +335,7 @@ public class pcfQueue {
 												"usage",queueUsage,
 												"cluster",queueCluster
 												),
-										new AtomicInteger(openOutvalue))
+										new AtomicLong(openOutvalue))
 										);
 							} else {
 								openOut.set(openOutvalue);
@@ -356,7 +354,7 @@ public class pcfQueue {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						value = pcfMsg.getIntParameterValue(MQConstants.MQIA_MAX_Q_DEPTH);
 						if (value > 0) {
-							AtomicInteger openMax = maxQueMap.get(lookupMaxDepth + "_" + queueName);
+							AtomicLong openMax = maxQueMap.get(lookupMaxDepth + "_" + queueName);
 							if (openMax == null) {
 								maxQueMap.put(lookupMaxDepth + "_" + queueName, base.meterRegistry.gauge(lookupMaxDepth, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -365,7 +363,7 @@ public class pcfQueue {
 												"usage",queueUsage,
 												"cluster",queueCluster
 												),
-										new AtomicInteger(value))
+										new AtomicLong(value))
 										);
 							} else {
 								openMax.set(value);
@@ -518,7 +516,7 @@ public class pcfQueue {
 					if (qType != MQConstants.MQQT_ALIAS) {
 						int devalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_DEQ_COUNT);
 						if (devalue > 0) {
-							AtomicInteger deQue = deQueMap.get(lookupdeQueued + "_" + queueName);
+							AtomicLong deQue = deQueMap.get(lookupdeQueued + "_" + queueName);
 							if (deQue == null) {
 								deQueMap.put(lookupdeQueued + "_" + queueName, base.meterRegistry.gauge(lookupdeQueued, 
 										Tags.of("queueManagerName", this.queueManager,
@@ -527,7 +525,7 @@ public class pcfQueue {
 												"usage",queueUsage,
 												"cluster",queueCluster
 												),
-										new AtomicInteger(devalue))
+										new AtomicLong(devalue))
 										);
 							} else {
 								deQue.set(devalue);
@@ -543,7 +541,7 @@ public class pcfQueue {
 						// Messages EnQueued
 						int envalue = pcfResResp[0].getIntParameterValue(MQConstants.MQIA_MSG_ENQ_COUNT);
 						if (envalue > 0) {
-							AtomicInteger enQue = enQueMap.get(lookupenQueued + "_" + queueName);
+							AtomicLong enQue = enQueMap.get(lookupenQueued + "_" + queueName);
 							if (enQue == null) {
 								enQueMap.put(lookupenQueued + "_" + queueName, 
 										base.meterRegistry.gauge(lookupenQueued, 
@@ -553,7 +551,7 @@ public class pcfQueue {
 												"usage",queueUsage,
 												"cluster",queueCluster
 												),
-										new AtomicInteger(envalue))
+										new AtomicLong(envalue))
 										);
 							} else {
 								enQue.set(envalue);
@@ -676,9 +674,9 @@ public class pcfQueue {
 		pcfInqHandle.addParameter(MQConstants.MQIACF_Q_STATUS_TYPE, MQConstants.MQIACF_Q_HANDLE);					
 		PCFMessage[] pcfResHandle = getMessageAgent().send(pcfInqHandle);
 
-		int openInput = 0;
-		int openOutput = 0;
-		int v = 0;
+		long openInput = 0;
+		long openOutput = 0;
+		long v = 0;
 
 		/*
 		 * Create an openOutput and openInput 'event' for each MQhandle 
@@ -694,8 +692,8 @@ public class pcfQueue {
 			int procId = 
 					pcfMsg.getIntParameterValue(MQConstants.MQIACF_PROCESS_ID);
 
-			AtomicInteger openIn = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openInput");
-			AtomicInteger openOut = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openOutput");
+			AtomicLong openIn = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openInput");
+			AtomicLong openOut = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openOutput");
 
 			if (openIn != null) {
 				openIn.set(0);
@@ -723,8 +721,8 @@ public class pcfQueue {
 			int vout = pcfMsg.getIntParameterValue(MQConstants.MQIACF_OPEN_OUTPUT);		
 			log.debug("App: {}, Queue: {}, in: {}, out: {}", appName, queueName, vin, vout);
 
-			AtomicInteger openIn = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openInput");
-			AtomicInteger openOut = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openOutput");
+			AtomicLong openIn = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openInput");
+			AtomicLong openOut = procMap.get(lookupQueueProcesses + "_" + queueName + "_" + procId + "_" + appName.trim() + "_openOutput");
 	
 			//if (vin > 0) {
 				if (openIn == null) {
@@ -739,7 +737,7 @@ public class pcfQueue {
 									"type","openInput"
 						//			"seq",Integer.toString(seq)
 									),
-							new AtomicInteger(vin))
+							new AtomicLong(vin))
 							);
 				} else {
 					v = openIn.get() + vin;
@@ -759,7 +757,7 @@ public class pcfQueue {
 									"type","openOutput"
 						//			"seq",Integer.toString(seq)
 									),
-							new AtomicInteger(vout))
+							new AtomicLong(vout))
 							);
 				} else {
 					v = openOut.get() + vout;

@@ -310,6 +310,7 @@ public class MQConnection {
 		UpdateQueueMetrics();
 		UpdateChannelMetrics();
 		UpdateConnectionMetrics();
+		UpdateMemoryMetrics();
 		
 		base.setCounter();
 		if (base.getCounter() % base.ClearMetrics() == 0) {
@@ -388,6 +389,16 @@ public class MQConnection {
 		ConnectionsObject().updateConnectionsMetrics();
 		
 	}
+	
+	private void UpdateMemoryMetrics() {
+		
+		try {
+			this.pcfQueueManager.memoryMetrics();
+		} catch (Exception e) {
+			//
+		}
+	}
+
 	
 	/*
 	 * Disconnect cleanly from the queue manager

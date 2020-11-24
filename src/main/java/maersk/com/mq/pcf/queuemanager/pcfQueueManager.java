@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PostConstruct;
 
@@ -67,11 +68,13 @@ public class pcfQueueManager {
     private String lookupStatus = "mq:queueManagerStatus";
     private String lookupReset = "mq:resetIterations";
     private String lookupMultiInstance = "mq:multiInstance";
+    private String lookupMemory = "mq:memory";
 	
-    private Map<String,AtomicInteger>qmMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>cmdMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>iterMap = new HashMap<String,AtomicInteger>();
-    private Map<String,AtomicInteger>multiMap = new HashMap<String,AtomicInteger>();
+    private Map<String,AtomicLong>qmMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>cmdMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>iterMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>multiMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>memoryMap = new HashMap<String,AtomicLong>();
 
     //private Boolean multiInstance = false;
     
@@ -147,11 +150,11 @@ public class pcfQueueManager {
      */
 	public void ResetMetricsIteration(String queueMan) {
 
-		AtomicInteger value = iterMap.get(lookupReset + "_" + queueMan);
+		AtomicLong value = iterMap.get(lookupReset + "_" + queueMan);
 		if (value == null) {
 			iterMap.put(lookupReset + "_" + queueMan, base.meterRegistry.gauge(lookupReset, 
 					Tags.of("queueManagerName", queueMan),
-					new AtomicInteger(this.resetIterations))
+					new AtomicLong(this.resetIterations))
 					);
 		} else {
 			value.set(this.resetIterations);
@@ -245,12 +248,12 @@ public class pcfQueueManager {
 		 */
 		log.debug("pcfQueueManager: queue manager status");
 		int qmStatus = response.getIntParameterValue(MQConstants.MQIACF_Q_MGR_STATUS);
-		AtomicInteger qmStat = qmMap.get(lookupStatus + "_" + getQueueManagerName());
+		AtomicLong qmStat = qmMap.get(lookupStatus + "_" + getQueueManagerName());
 		if (qmStat == null) {
 			qmMap.put(lookupStatus + "_" + getQueueManagerName(), base.meterRegistry.gauge(lookupStatus, 
 					Tags.of("queueManagerName", getQueueManagerName(),
 							"cluster",getQueueManagerClusterName()),
-					new AtomicInteger(qmStatus))
+					new AtomicLong(qmStatus))
 					);
 		} else {
 			qmStat.set(qmStatus);
@@ -261,11 +264,11 @@ public class pcfQueueManager {
 		 */
 		log.debug("pcfQueueManager: command server status");
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
-		AtomicInteger value = cmdMap.get(cmdLookupStatus + "_" + getQueueManagerName());
+		AtomicLong value = cmdMap.get(cmdLookupStatus + "_" + getQueueManagerName());
 		if (value == null) {
 			cmdMap.put(cmdLookupStatus + "_" + getQueueManagerName(), base.meterRegistry.gauge(cmdLookupStatus, 
 					Tags.of("queueManagerName", getQueueManagerName()),
-					new AtomicInteger(cmdStatus))
+					new AtomicLong(cmdStatus))
 					);
 		} else {
 			value.set(cmdStatus);
@@ -273,6 +276,27 @@ public class pcfQueueManager {
 
 	}
 
+	/*
+	 * Calc memory
+	 */
+	public void memoryMetrics() throws Exception {
+
+		Runtime rt = Runtime.getRuntime();
+		long usedMB = (rt.totalMemory() - rt.freeMemory()) / 1024 / 1024;
+		
+		AtomicLong value = memoryMap.get(lookupMemory + "_" + getQueueManagerName());
+		if (value == null) {
+			memoryMap.put(lookupMemory + "_" + getQueueManagerName(), 
+					base.meterRegistry.gauge(lookupMemory, 
+					Tags.of("queueManagerName", getQueueManagerName()),
+					new AtomicLong(usedMB))
+					);
+		} else {
+			value.set(usedMB);
+		}		
+
+	}
+	
 	/*
 	 * Whats the accounting type set to ?
 	 */
@@ -335,12 +359,12 @@ public class pcfQueueManager {
 
 		}
 		
-		AtomicInteger value = qmMap.get(lookupStatus + "_" + qm);
+		AtomicLong value = qmMap.get(lookupStatus + "_" + qm);
 		if (value == null) {
 			qmMap.put(lookupStatus + "_" + qm, base.meterRegistry.gauge(lookupStatus, 
 					Tags.of("queueManagerName", qm,
 							"cluster",getQueueManagerClusterName()),
-					new AtomicInteger(val))
+					new AtomicLong(val))
 					);
 		} else {
 			value.set(val);
@@ -353,11 +377,11 @@ public class pcfQueueManager {
 		if (mi) {
 			val = MQPCFConstants.MULTIINSTANCE;
 		}
-		AtomicInteger multiVal = multiMap.get(lookupMultiInstance + "_" + qm);
+		AtomicLong multiVal = multiMap.get(lookupMultiInstance + "_" + qm);
 		if (multiVal == null) {
 			multiMap.put(lookupMultiInstance + "_" + qm, base.meterRegistry.gauge(lookupMultiInstance, 
 					Tags.of("queueManagerName", qm),
-					new AtomicInteger(val))
+					new AtomicLong(val))
 					);
 		} else {
 			multiVal.set(val);
