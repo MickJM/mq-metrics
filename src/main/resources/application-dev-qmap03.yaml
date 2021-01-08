@@ -3,7 +3,7 @@ logging:
     org:
       springframework: OFF
     app:
-      com: DEBUG
+      com: INFO
 application:
   save:
     metrics:

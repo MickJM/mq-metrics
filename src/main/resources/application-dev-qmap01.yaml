@@ -1,12 +1,12 @@
 logging:
   level:
     org:
-      springframework: "OFF"
+      springframework: OFF
     app:
-      com: "INFO"
+      com: INFO
 spring:
   main:
-    banner-mode: "CONSOLE"
+    banner-mode: CONSOLE
   banner:
     location: classpath:/banner.txt            
   security:
