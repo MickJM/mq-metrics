@@ -2,7 +2,7 @@ logging:
   level:
     org:
       springframework: OFF
-    maersk:
+    app:
       com: DEBUG
 application:
   save:
