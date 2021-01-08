@@ -78,5 +78,10 @@ info:
     java:
       version: 1.8.0.0
 server:
-  port:
-    8081
+  ssl:
+    key-store: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
+    key-store-type: JKS
+    key-store-password: Passw0rd
+    key-password: Passw0rd
+    key-alias: mqmetricsapi
+  port: 8081

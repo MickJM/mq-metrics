@@ -133,7 +133,7 @@ Additional properties can be used in the yaml file;
 
 `logging.level.org.springfromwork: OFF` - Spring Framework logging
 
-`logging.level.maersk.com: debug-level` - Maersk objects to debug
+`logging.level.xxxxxxx.com: debug-level` - xxxxxx objects to debug
 
 `debug-level` can be `OFF`, `INFO`, `DEBUG`, `WARN` or `TRACE`
 
