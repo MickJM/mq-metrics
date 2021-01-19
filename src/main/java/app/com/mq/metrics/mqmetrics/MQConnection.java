@@ -1,8 +1,7 @@
 package app.com.mq.metrics.mqmetrics;
 
 /*
- * Copyright 2019
- * Maersk
+ * Copyright 2020
  *
  * Connect to a queue manager
  * 

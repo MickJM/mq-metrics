@@ -9,18 +9,18 @@ public class MockBeans {
 
 	/*
 	@MockBean
-	private maersk.com.mq.pcf.listener.pcfListener pcfListener;
+	private app.com.mq.pcf.listener.pcfListener pcfListener;
 
 	@MockBean
-	private maersk.com.mq.pcf.channel.pcfChannel pcfChannel;
+	private app.com.mq.pcf.channel.pcfChannel pcfChannel;
 
 	@MockBean
-	private maersk.com.mq.pcf.queue.pcfQueue pcfQueue;
+	private app.com.mq.pcf.queue.pcfQueue pcfQueue;
 
 	@MockBean
-	private maersk.com.mq.pcf.connections.pcfConnections pcfConnections;
+	private app.com.mq.pcf.connections.pcfConnections pcfConnections;
 
 	@MockBean
-	private maersk.com.mq.pcf.queuemanager.pcfQueueManager pcfQueueManager;
+	private app.com.mq.pcf.queuemanager.pcfQueueManager pcfQueueManager;
 	*/
 }

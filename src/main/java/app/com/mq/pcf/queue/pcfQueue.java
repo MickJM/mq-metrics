@@ -3,8 +3,7 @@ package app.com.mq.pcf.queue;
 import java.io.DataInput;
 
 /*
- * Copyright 2019
- * Mick Moriarty - Maersk
+ * Copyright 2020
  *
  * Get queue details
  * 

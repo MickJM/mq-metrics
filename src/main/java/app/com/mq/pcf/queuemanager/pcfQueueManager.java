@@ -1,8 +1,7 @@
 package app.com.mq.pcf.queuemanager;
 
 /*
- * Copyright 2019
- * Mick Moriarty - Maersk
+ * Copyright 2020
  *
  * Get queue manager details
  * 
