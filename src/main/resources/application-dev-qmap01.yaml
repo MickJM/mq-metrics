@@ -2,8 +2,8 @@ logging:
   level:
     org:
       springframework: OFF
-    app:
-      com: INFO
+    monitor:
+      mq: INFO
 spring:
   main:
     banner-mode: CONSOLE
@@ -17,15 +17,16 @@ ibm:
   mq:
     multiInstance: false
     queueManager: QMAP01
-    channel: MQ.MONITOR.SVRCONN
-    channel1: NOCRED_WITHCHLAUTH
+    channel1: MQ.MONITOR.SVRCONN
+    channel2: NOCRED_WITHCHLAUTH
+    channel: MQ.JMS.SVRCONN
     connName: localhost(1501)
     sslCipherSpec2:
     sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
     sslCipherSpec3: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
     ibmCipherMapping: false
-    useSSL: true
+    useSSL: false
     user: MQmon01
     password: Passw0rd
     authenticateUsingCSP: true
@@ -42,10 +43,10 @@ ibm:
       sort: true
       order: ascending
     objects:
-      epoch: 0
+      epoch: 1
       queues:
         include: DEAD.LETTER.QUEUE, SYSTEM.ADMIN.COMMAND.QUEUE, SYSTEM.ADMIN.STATISTICS.QUEUE, SYSTEM.ADMIN.ACCOUNTING.QUEUE, "*"
-        exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER
+        exclude: SYSTEM.,AMQ.,DUMMY,ERROR.HANDLER,KMQ.
       channels:
         include: "*"
         exclude: SYSTEM.
@@ -79,9 +80,9 @@ info:
       version: 1.8.0.0
 server:
   ssl:
-    key-store: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
-    key-store-type: JKS
-    key-store-password: Passw0rd
-    key-password: Passw0rd
-    key-alias: mqmetricsapi
-  port: 8081
+    key-store1: c:\Users\mickm\OneDrive\Documents\Development\tomcat\tomcat.p12
+    key-store-password1: Passw0rd
+    key-store-type1: pkcs12
+    key-alias1: mqevents
+    key-password1: Passw0rd  
+  port: 8082

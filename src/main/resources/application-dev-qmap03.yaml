@@ -2,8 +2,8 @@ logging:
   level:
     org:
       springframework: OFF
-    app:
-      com: INFO
+    monitor:
+      mq: INFO
 application:
   save:
     metrics:
