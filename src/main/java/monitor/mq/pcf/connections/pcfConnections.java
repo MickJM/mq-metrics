@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PostConstruct;
@@ -68,17 +67,19 @@ public class pcfConnections {
 		
 	}
 	
-	public void updateConnectionsMetrics() throws MQException, IOException, MQDataException {
+	public void UpdateConnectionsMetrics() throws MQException, IOException, MQDataException {
 		
 		log.debug("pcfConnections: inquire on connections");
 
 		/*
 		 * **** Dont clear the metrics for these, as we want to see who has been connected ****
+		 * .... even if the queue manager stops and restarts
+		 * 
 		 * Clear the metrics every 'x' iteration
 		 */
 		//if (base.getCounter() % base.ClearMetrics() == 0) {
 		//	log.debug("Clearing connections metrics");
-		//	resetMetrics();
+		//	ResetMetrics();
 		//}
 
 		SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH.mm.ss");
@@ -91,7 +92,6 @@ public class pcfConnections {
 				MQConstants.MQCACF_APPL_TAG,
 				MQConstants.MQCACH_CHANNEL_NAME,
 				MQConstants.MQCACH_CONNECTION_NAME });
-		//pcfRequest.addParameter(MQConstants.MQIACF_CONNECTION_ATTRS, MQConstants.MQIACF_ALL);		
 
 		/*
 		 * Get a list of connections
@@ -107,7 +107,6 @@ public class pcfConnections {
 		log.debug("pcfConnections: inquire connections response");
 
 		final Map<String,ConnectionsObject>countsMap = new HashMap<String,ConnectionsObject>();
-		//countsMap.clear();
 		
 		for (PCFMessage pcfMsg : pcfResponse) {
 			
@@ -213,16 +212,16 @@ public class pcfConnections {
 	/*
 	 * Reset metrics
 	 */
-	public void resetMetrics() {
+	public void ResetMetrics() {
 		log.debug("pcfQueue: resetting metrics");
-		deleteMetrics();
+		DeleteMetrics();
 	}
 	
 	/*
 	 * Clear the metrics ....
 	 * 
 	 */
-	private void deleteMetrics() {
+	private void DeleteMetrics() {
 
 		base.DeleteMetricEntry(lookupConns);
 

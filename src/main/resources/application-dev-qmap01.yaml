@@ -15,7 +15,7 @@ spring:
        password: monitor123            
 ibm:
   mq:
-    multiInstance: false
+    multiInstance: true
     queueManager: QMAP01
     channel1: MQ.MONITOR.SVRCONN
     channel2: NOCRED_WITHCHLAUTH
@@ -24,7 +24,7 @@ ibm:
     sslCipherSpec2:
     sslCipherSpec1: TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
     sslCipherSpec3: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-    sslCipherSpec: TLS_RSA_WITH_AES_128_CBC_SHA256
+    sslCipherSpec: 
     ibmCipherMapping: false
     useSSL: false
     user: MQmon01
@@ -32,6 +32,9 @@ ibm:
     authenticateUsingCSP: true
     local: false
     keepMetricsWhenQueueManagerIsDown: false
+    resources:
+      cpu: true
+      system: true
     clearMetrics: 5
     ccdtFile1: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\@ipcc\AMQCLCHL.TAB
     alerts1:
@@ -79,10 +82,10 @@ info:
     java:
       version: 1.8.0.0
 server:
-  ssl:
-    key-store1: c:\Users\mickm\OneDrive\Documents\Development\tomcat\tomcat.p12
-    key-store-password1: Passw0rd
-    key-store-type1: pkcs12
-    key-alias1: mqevents
-    key-password1: Passw0rd  
-  port: 8082
+#  ssl:
+#    key-store1: c:\Users\mickm\OneDrive\Documents\Development\tomcat\tomcat.p12
+#    key-store-password1: Passw0rd
+#    key-store-type1: pkcs12
+#    key-alias1: mqevents
+#    key-password1: Passw0rd  
+  port: 8081

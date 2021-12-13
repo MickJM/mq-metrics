@@ -38,6 +38,7 @@ import monitor.mq.pcf.connections.pcfConnections;
 import monitor.mq.pcf.listener.pcfListener;
 import monitor.mq.pcf.queue.pcfQueue;
 import monitor.mq.pcf.queuemanager.pcfQueueManager;
+import monitor.mq.resources.MQResources;
 
 import com.ibm.mq.headers.pcf.PCFException;
 
@@ -65,6 +66,18 @@ public class MQConnection {
     private long resetiterations;
     public long ResetIterations() {
     	return resetiterations;
+    }
+
+    @Value("${ibm.mq.resources.cpu:false}")
+    private boolean cpuMetrics;
+    public boolean ProcessCPUMetrics() {
+    	return this.cpuMetrics;
+    }
+
+    @Value("${ibm.mq.resources.system:false}")
+    private boolean systemMetrics;
+    public boolean ProcessSystemMetrics() {
+    	return this.systemMetrics;
     }
     
     private MQQueueManager queManager = null;
@@ -126,7 +139,13 @@ public class MQConnection {
     private pcfConnections ConnectionsObject() {
     	return this.pcfConnections;
     }
-    
+
+    @Autowired
+    private MQResources mqResources;
+    private MQResources ResourcesObject() {
+    	return this.mqResources;
+    }
+
     @Bean
     public JSONController JSONController() {
     	return new JSONController();
@@ -166,8 +185,23 @@ public class MQConnection {
 		ResetMetricsIterations();
 
 		try {
+
 			if (MessageAgent() != null) {
-				Metrics();
+
+				// If the Resources object has been created, then create either a CPU thread or SYSTEM thread to process messages
+				//    ... from the appropriate topic - the topic is dynamically created in the ResourceObject class
+				//    ... when the subscription is created
+				if (ResourcesObject().ObjectCreated()) {
+					if (ProcessCPUMetrics()) {
+						if (!ResourcesObject().IsRunning()) {
+							ResourcesObject().ProcessCPUMetrics(MQQueueManager(), MQMonitorBase.CPUMETRIC);					
+						}
+					}
+					if (ProcessSystemMetrics()) {
+						ResourcesObject().ProcessSystemMetrics(MQQueueManager(), MQMonitorBase.SYSTEMMETRIC);					
+					}
+				}
+				Metrics();			// Create the metrics for each MQ object required
 				
 			} else {
 				ConnectToQueueManager();
@@ -201,7 +235,7 @@ public class MQConnection {
 			CloseQMConnection();
 			QueueManagerObject().connectionBroken(w.getReason());
 			QueueManagerIsNotRunning(w.getReason());
-			
+
 		} catch (IOException i) {
 			ReasonCode(9001);
 			log.error("IOException " + i.getMessage());
@@ -217,7 +251,9 @@ public class MQConnection {
 			CloseQMConnection();
 			QueueManagerObject().connectionBroken();
 			QueueManagerIsNotRunning(MQPCFConstants.PCF_INIT_VALUE);
-		}
+
+		} 
+		
     }
     	
 	/*
@@ -267,7 +303,7 @@ public class MQConnection {
 	private void QueueManagerIsNotRunning(int status) {
 
 		if (QueueManagerObject() != null) {
-			QueueManagerObject().notRunning(QueueManagerName(), MultiInstance(), status);
+			QueueManagerObject().NotRunning(QueueManagerName(), MultiInstance(), status);
 		}
 
 		/*
@@ -282,7 +318,7 @@ public class MQConnection {
 				ChannelObject().ResetMetrics();
 			}
 			//if (getQueueManagerObject() != null) {
-			//	getQueueManagerObject().resetMetrics();			
+			//	getQueueManagerObject().ResetMetrics();			
 			//}
 			if (QueueObject() != null) {
 				QueueObject().ResetMetrics();			
@@ -306,6 +342,7 @@ public class MQConnection {
 		
 		CheckQueueManagerCluster();
 		UpdateQMMetrics();
+		UpdateMultiInstance();
 		UpdateListenerMetrics();
 		UpdateQueueMetrics();
 		UpdateChannelMetrics();
@@ -322,25 +359,38 @@ public class MQConnection {
 	
 	/*
 	 * Check if the queue manager belongs to a cluster ...
+	 * 
+	 * ... Metrics are cleared, if needed, in the QueueManagerObject
 	 */
 	private void CheckQueueManagerCluster() {
-		QueueManagerObject().checkQueueManagerCluster();
+		QueueManagerObject().CheckQueueManagerCluster();
 				
 	}
 	
 	/*
-	 * Update the queue manager metrics 
+	 * Update the queue manager metrics
+	 * 
+	 * ... Metrics are cleared, if needed, in the QueueManagerObject when the above is invoked
 	 */
 	private void UpdateQMMetrics() throws PCFException, 
 		MQException, 
 		IOException, 
 		MQDataException {
 
-		QueueManagerObject().updateQMMetrics();
+		QueueManagerObject().UpdateQMMetrics();
 		QueueObject().setQueueMonitoringFromQmgr(QueueManagerObject().getQueueMonitoringFromQmgr());		
 		
 	}
 
+	private void UpdateMultiInstance() throws PCFException, 
+		MQException, 
+		IOException, 
+		MQDataException {
+
+	QueueManagerObject().MulitInstance(QueueManagerName(), MultiInstance());
+	
+}
+	
 	/*
 	 * Update the queue manager listener metrics
 	 * 
@@ -362,7 +412,7 @@ public class MQConnection {
 		MQDataException, 
 		ParseException {
 		
-		ChannelObject().updateChannelMetrics();
+		ChannelObject().UpdateChannelMetrics();
 		
 	}
 
@@ -374,7 +424,7 @@ public class MQConnection {
 		IOException, 
 		MQDataException {
 
-		QueueObject().updateQueueMetrics();
+		QueueObject().UpdateQueueMetrics();
 				
 	}
 
@@ -386,7 +436,7 @@ public class MQConnection {
 		IOException,  
 		MQDataException {
 		
-		ConnectionsObject().updateConnectionsMetrics();
+		ConnectionsObject().UpdateConnectionsMetrics();
 		
 	}
 	

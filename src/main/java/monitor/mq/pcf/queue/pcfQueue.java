@@ -1,7 +1,5 @@
 package monitor.mq.pcf.queue;
 
-import java.io.DataInput;
-
 /*
  * Copyright 2020
  *
@@ -16,9 +14,7 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -29,8 +25,6 @@ import org.springframework.stereotype.Component;
 import com.ibm.mq.MQException;
 import com.ibm.mq.constants.MQConstants;
 import com.ibm.mq.headers.MQDataException;
-import com.ibm.mq.headers.pcf.MQCFGR;
-import com.ibm.mq.headers.pcf.MQCFH;
 import com.ibm.mq.headers.pcf.PCFException;
 import com.ibm.mq.headers.pcf.PCFMessage;
 import com.ibm.mq.headers.pcf.PCFMessageAgent;
@@ -183,16 +177,14 @@ public class pcfQueue {
     /*
      * Get the metrics for each queue that we want
      */
-	public void updateQueueMetrics() throws MQException, IOException, MQDataException {
+	public void UpdateQueueMetrics() throws MQException, IOException, MQDataException {
 	
 		log.debug("pcfQueue: inquire queue request");
 
 		/*
 		 * Clear the metrics every 'x' iteration
 		 */
-		//base.setCounter();
 		if (base.getCounter() % base.ClearMetrics() == 0) {
-			//base.setCounter(0);
 			log.debug("Clearing queue metrics");
 			ResetMetrics();
 		}

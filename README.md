@@ -1,10 +1,10 @@
 # MQ Metrics API
 
-## MQ Exporter for Prometheus monitoring
+## MQ Prometheus monitoring
 
 This repository contains Java Spring Boot, microservice code for a monitoring solution that exports queue manager metrics to a Prometheus data collection system.  It also contains example configuration files on how to run the monitoring program.
 
-The monitor collects metrics from an IBM MQ v9, v8 or v7 queue manager.  The monitor, polls metrics from the queue manager every 10 seconds, which can be changed in the configuration file.  Prometheus can be configured to call the exposed end-point at regular intervals to pull these metrics into its database, where they can be queried directly or used with dashboard applications such as Grafana.
+The monitor can collect metrics from an IBM MQ v9, v8 or v7 queue manager.  The monitor, polls metrics from the queue manager every 10 seconds, which can be changed in the configuration file.  Prometheus can be configured to call the exposed end-point at regular intervals to pull these metrics into its database, where they can be queried directly or used with dashboard applications such as Grafana.
 
 The API can be run as a service or from a Docker container.
 
@@ -21,7 +21,7 @@ The API can be run in three ways;
 When running with a local binding connection, the API and the queue manager must be running on the same host.  The API connects directly to the queue manager.  No security or authentication is required, as the API is deemed to be authenticated due to it running on the same host.
 
 ```
-ibm.mq.queueManager: QMGR
+ibm.mq.queueManager: {Queuemanager name}
 ibm.mq.local: true
 ```
 
@@ -34,7 +34,7 @@ When running as a client connection, the API and the queue manager run on separa
 Minimum yaml requirements in the application-XXXX.yaml file
 
 ```
-ibm.mq.queueManager: QMGR
+ibm.mq.queueManager: {Queuemanager name}
 ibm.mq.channel: SVRCONN.CHANNEL.NAME
 ibm.mq.connName: HOSTNAME(PORT)
 ibm.mq.user: MQUser
@@ -67,7 +67,7 @@ ibm.mq.security.keystore-password: secret
 When running with a CCDT connection, this is similar to a client connection, with the client connection details stored in a secure, binary file.
 
 ```
-ibm.mq.queueManager: QMGR
+ibm.mq.queueManager: {Queuemanager name}
 ibm.mq.channel: SVRCONN.CHANNEL.NAME   
 ibm.mq.ccdtFile: {fully qualified file path}/AMQCLCHL.TAB 
 ```
@@ -150,9 +150,13 @@ Additional properties can be used in the yaml file;
 
 Running the API microservice is easy;
 
-`java -jar mq-metric-1.0.0.17.jar --spring.active.profiles=xxxxxx`
+`java -jar mq-metrics-1.0.0.XX.jar --spring.active.profiles=xxxxxx --spring.config.location=/home/mqm/config/`
 
 Where xxxxxx is the sufix name of the yaml file.
+
+The monitoring API, when run locally in an MQ docker container, can be controlled by an MQ service object.  This service object is created using the mqSetupMonitorService script.  The execution of the monitoring API, is run using the mqRunQmgrMetrics - this also creates the application profile dynamically. 
+
+
 
 ## Technical details
 

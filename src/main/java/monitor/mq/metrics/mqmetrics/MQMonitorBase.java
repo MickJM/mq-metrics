@@ -4,8 +4,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -45,6 +43,9 @@ public class MQMonitorBase implements MQPCFConstants {
 		return this.clearMetrics;
 	}
 
+	public static int CPUMETRIC = 0;
+	public static int SYSTEMMETRIC = 1;
+	
 	/*
 	 * Delete the appropriate metric
 	 */

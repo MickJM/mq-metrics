@@ -12,7 +12,6 @@ package monitor.mq.pcf.queuemanager;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.annotation.PostConstruct;
@@ -65,11 +64,15 @@ public class pcfQueueManager {
 
     private String cmdLookupStatus = "mq:commandServerStatus";
     private String lookupStatus = "mq:queueManagerStatus";
+    private String lookupStandby = "mq:standbyStatus";
+
     private String lookupReset = "mq:resetIterations";
     private String lookupMultiInstance = "mq:multiInstance";
     private String lookupMemory = "mq:memory";
 	
     private Map<String,AtomicLong>qmMap = new HashMap<String,AtomicLong>();
+    private Map<String,AtomicLong>standbyMap = new HashMap<String,AtomicLong>();
+
     private Map<String,AtomicLong>cmdMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>iterMap = new HashMap<String,AtomicLong>();
     private Map<String,AtomicLong>multiMap = new HashMap<String,AtomicLong>();
@@ -163,10 +166,20 @@ public class pcfQueueManager {
 	/*
 	 * Get the cluster name of the queue manager
 	 */
-	public void checkQueueManagerCluster() {
+	public void CheckQueueManagerCluster() {
 
 		log.debug("pcfQueueManager: checkQueueManagerCluster");
 
+		/*
+		 * Clear the metrics every 'x' iteration
+		 * 
+		 * *** dont need to clear metrics for queue manager - metrics dont grow like queues, channels etc
+		 */
+		if (base.getCounter() % base.ClearMetrics() == 0) {
+			log.debug("Clearing QueueManager metrics");
+		//	ResetMetrics();
+		}
+		
         int[] pcfParmAttrs = { MQConstants.MQIACF_ALL };        
         PCFMessage pcfRequest = new PCFMessage(MQConstants.MQCMD_INQUIRE_CLUSTER_Q_MGR);
         pcfRequest.addParameter(MQConstants.MQCA_CLUSTER_Q_MGR_NAME, getQueueManagerName()); 
@@ -191,7 +204,7 @@ public class pcfQueueManager {
 	 * ... if we are not connected, then we will not set the status here
 	 * ... it will be set in the NotRunning method
 	 */
-	public void updateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
+	public void UpdateQMMetrics() throws PCFException, MQException, IOException, MQDataException {
 
 		/*
 		 *  Inquire on the queue manager ...
@@ -263,16 +276,32 @@ public class pcfQueueManager {
 		 */
 		log.debug("pcfQueueManager: command server status");
 		int cmdStatus = response.getIntParameterValue(MQConstants.MQIACF_CMD_SERVER_STATUS);
-		AtomicLong value = cmdMap.get(cmdLookupStatus + "_" + getQueueManagerName());
-		if (value == null) {
+		AtomicLong cmdVal = cmdMap.get(cmdLookupStatus + "_" + getQueueManagerName());
+		if (cmdVal == null) {
 			cmdMap.put(cmdLookupStatus + "_" + getQueueManagerName(), base.meterRegistry.gauge(cmdLookupStatus, 
 					Tags.of("queueManagerName", getQueueManagerName()),
 					new AtomicLong(cmdStatus))
 					);
 		} else {
-			value.set(cmdStatus);
+			cmdVal.set(cmdStatus);
 		}
-
+		
+		/*
+		 * Standby
+		 */
+		log.debug("pcfQueueManager: standby");
+		int standBy = response.getIntParameterValue(MQConstants.MQIACF_PERMIT_STANDBY);
+		AtomicLong stndby = standbyMap.get(lookupStandby + "_" + getQueueManagerName());
+		if (stndby == null) {
+			standbyMap.put(lookupStandby + "_" + getQueueManagerName(), base.meterRegistry.gauge(lookupStandby, 
+					Tags.of("queueManagerName", getQueueManagerName()),
+					new AtomicLong(standBy))
+					);
+		} else {
+			stndby.set(standBy);
+		}
+				
+				
 	}
 
 	/*
@@ -317,10 +346,11 @@ public class pcfQueueManager {
 		}
 		return s;
 	}
+	
 	/*
 	 * Called from the main class, if we are not running, set the status
 	 */
-	public void notRunning(String qm, Boolean mi, int status) {
+	public void NotRunning(String qm, Boolean mi, int status) {
 
 		if (getQueueManagerName() != null) {
 			qm = getQueueManagerName();
@@ -368,11 +398,18 @@ public class pcfQueueManager {
 		} else {
 			value.set(val);
 		}
-				
+						
+	}
+
+	/*
+	 * API running for multi-instance
+	 */
+	public void MulitInstance(String qm, Boolean mi) {
+		
 		/*
 		 *  Set the queue manager status to indicate that its in multi-instance
 		 */
-		val = MQPCFConstants.NOT_MULTIINSTANCE;
+		int val = MQPCFConstants.NOT_MULTIINSTANCE;
 		if (mi) {
 			val = MQPCFConstants.MULTIINSTANCE;
 		}
@@ -385,15 +422,14 @@ public class pcfQueueManager {
 		} else {
 			multiVal.set(val);
 		}
-		
 	}
 
 	/*
 	 * Reset metrics
 	 */
-	public void resetMetrics() {
-	//	log.debug("pcfQueueManager: resetting metrics");
-	//	deleteMetrics();
+	public void ResetMetrics() {
+		log.debug("pcfQueueManager: resetting metrics");
+		deleteMetrics();
 		
 	}
 
@@ -401,11 +437,13 @@ public class pcfQueueManager {
 	 * Remove the metric
 	 */	
 	private void deleteMetrics() {
-		base.DeleteMetricEntry(lookupReset);
-		base.DeleteMetricEntry(lookupStatus);
 		base.DeleteMetricEntry(cmdLookupStatus);
+		base.DeleteMetricEntry(lookupStatus);
+		base.DeleteMetricEntry(lookupReset);
 		base.DeleteMetricEntry(lookupMultiInstance);
-		
+		base.DeleteMetricEntry(lookupMemory);
+		base.DeleteMetricEntry(lookupStandby);
+						
 	}
 	
 	/*

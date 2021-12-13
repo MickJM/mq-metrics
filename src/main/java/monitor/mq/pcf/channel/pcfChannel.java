@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -100,7 +99,7 @@ public class pcfChannel {
     /*
      * Get the channel metrics
      */
-	public void updateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
+	public void UpdateChannelMetrics() throws MQException, IOException, PCFException, MQDataException, ParseException {
 		
 		log.debug("pcfChannel: inquire on channel request"); 
 		
