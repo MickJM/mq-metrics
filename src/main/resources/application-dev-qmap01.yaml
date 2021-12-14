@@ -26,7 +26,7 @@ ibm:
     sslCipherSpec3: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
     sslCipherSpec: 
     ibmCipherMapping: false
-    useSSL: false
+    useSSL: true
     user: MQmon01
     password: Passw0rd
     authenticateUsingCSP: true
@@ -61,11 +61,11 @@ ibm:
           exclude: "*"         
     event:
       delayInMilliSeconds: 10000      
-    security:
-      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
-      truststore-password: Passw0rd
-      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
-      keystore-password: Passw0rd
+#    security:
+#      truststore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
+#      truststore-password: Passw0rd
+#      keystore: C:\ProgramData\IBM\MQ\qmgrs\QMAP01\ssl\qmap01test.jks
+#      keystore-password: Passw0rd
 management:
   endpoints:
     web:

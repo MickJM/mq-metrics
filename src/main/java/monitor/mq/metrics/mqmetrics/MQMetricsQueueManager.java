@@ -115,25 +115,28 @@ public class MQMetricsQueueManager {
 	public boolean UsingSSL() {
 		return this.usessl;
 	}
+	public void UsingSSL(boolean v) {
+		this.usessl = v;
+	}
 	
-	@Value("${ibm.mq.security.truststore}")
+	@Value("${ibm.mq.security.truststore:#{null}}")
 	private String truststore;
 	public String TrustStore() {
 		return this.truststore;
 	}
-	@Value("${ibm.mq.security.truststore-password}")
+	@Value("${ibm.mq.security.truststore-password:#{null}}")
 	private String truststorepass;
 	public String TrustStorePass() {
 		return this.truststorepass;
 	}
 
-	@Value("${ibm.mq.security.keystore}")
+	@Value("${ibm.mq.security.keystore:#{null}}")
 	private String keystore;
 	public String KeyStore() {
 		return this.keystore;
 	}
 
-	@Value("${ibm.mq.security.keystore-password}")
+	@Value("${ibm.mq.security.keystore-password:#{null}}")
 	private String keystorepass;
 	public String KeyStorePass() {
 		return this.keystorepass;
@@ -365,7 +368,11 @@ public class MQMetricsQueueManager {
 			log.debug("Queue Man  : {}", QueueManagerName());
 			log.debug("User       : {}", UserId());
 			log.debug("Password   : {}", "**********");
-			
+
+			if (TrustStore() != null) {
+				UsingSSL(true);
+			} 
+
 			if (UsingSSL()) {
 				log.debug("SSL is enabled ....");
 			}
